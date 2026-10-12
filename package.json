@@ -1,0 +1,80 @@
+{
+  "name": "text2slide",
+  "version": "1.0.0",
+  "description": "Application de bureau Windows 100% hors-ligne pour formater et copier du texte vers PowerPoint",
+  "main": "out/main/main.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "prepack": "npm run build",
+    "pack": "electron-builder --win",
+    "release": "electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "@electron-toolkit/utils": "^3.0.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.19",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  },
+  "build": {
+    "productName": "Text2Slide",
+    "appId": "com.text2slide.app",
+    "asar": true,
+    "compression": "maximum",
+    "electronLanguages": [
+      "fr",
+      "en-US"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ImRanto",
+        "repo": "Text2Slide"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "!**/*.map",
+      "!**/*.ts",
+      "!**/*.tsx",
+      "!**/__tests__/**",
+      "!**/test/**",
+      "!**/*.md",
+      "!**/README*",
+      "!**/docs/**",
+      "!**/examples/**",
+      "!**/src/**",
+      "!**/electron/**",
+      "!**/*.psd",
+      "!**/*.xcf",
+      "!**/node_modules/**/test/**",
+      "!**/node_modules/**/docs/**",
+      "!**/node_modules/**/README*"
+    ]
+  }
+}

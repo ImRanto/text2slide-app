@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body { @apply font-sans bg-surface-app text-surface-ink antialiased; }
+  .dark body { @apply bg-surface-app-dark text-surface-ink-dark; }
+  input[type='checkbox'] { accent-color: #C43E1C; }
+  textarea, input, select { user-select: text; }
+  ::selection { background: #FBE9E3; color: #2B2220; }
+  .dark ::selection { background: #5a2a1d; color: #fff; }
+}
+
+@layer components {
+  .card { @apply bg-surface-card dark:bg-surface-card-dark border border-surface-line dark:border-surface-line-dark rounded-xl shadow-sm; }
+  .field { @apply w-full h-9 px-3 text-sm rounded-lg border border-surface-line dark:border-surface-line-dark bg-white dark:bg-surface-app-dark text-surface-ink dark:text-surface-ink-dark focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand; }
+  .lbl { @apply block text-xs font-medium mb-1.5 text-surface-mute dark:text-surface-mute-dark; }
+  .btn { @apply inline-flex items-center justify-center gap-2 h-9 px-3.5 text-sm font-medium rounded-lg border border-surface-line dark:border-surface-line-dark bg-white dark:bg-surface-card-dark text-surface-ink dark:text-surface-ink-dark hover:bg-brand-soft dark:hover:bg-surface-line-dark transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:opacity-40 disabled:pointer-events-none; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-2 h-11 px-5 text-sm font-semibold rounded-lg bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 disabled:opacity-40 disabled:pointer-events-none; }
+}
