@@ -1,5 +1,6 @@
 import { buildPptxBase64, buildOutlineText } from './pptx'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { BULLET_INDENT, LINE_FACTOR, MARGIN, PARA_AFTER, SLIDE_H, SLIDE_W, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type VAlign } from './layout'
 
 interface StyleSettings {
   fontFamily: string
@@ -8,6 +9,7 @@ interface StyleSettings {
   bgColor: string
   lineHeight: number
   align: 'left' | 'center' | 'right' | 'justify'
+  vAlign: VAlign
   useFirstLineAsTitle: boolean
   boldTitle: boolean
   boldAllText: boolean
@@ -27,6 +29,7 @@ const DEFAULT_SETTINGS: StyleSettings = {
   bgColor: '#ffffff',
   lineHeight: 1.4,
   align: 'left',
+  vAlign: 'auto',
   useFirstLineAsTitle: false,
   boldTitle: true,
   boldAllText: false
@@ -131,6 +134,7 @@ export default function App() {
   const [activeSlideIndex, setActiveSlideIndex] = useState(0)
   const [updateState, setUpdateState] = useState<UpdateState | null>(null)
   const [appVersion, setAppVersion] = useState('')
+  const [fontLoadVersion, setFontLoadVersion] = useState(0)
 
   useEffect(() => {
     localStorage.setItem('text2slide_settings', JSON.stringify(settings))
@@ -210,6 +214,23 @@ export default function App() {
       })
   }, [text, settings.useFirstLineAsTitle])
 
+  const layouts = useMemo(
+    () => measureSlides(slides, settings),
+    [slides, settings.fontFamily, settings.fontSize, settings.lineHeight, settings.boldTitle, settings.boldAllText, settings.vAlign, fontLoadVersion]
+  )
+  const alertCount = layouts.filter(layout => layout.level !== 'ok').length
+  const appendAlertSuffix = (message: string) => alertCount
+    ? `${message} · ${alertCount} diapo${alertCount > 1 ? 's' : ''} à vérifier`
+    : message
+
+  useEffect(() => {
+    let mounted = true
+    void document.fonts.ready.then(() => {
+      if (mounted) setFontLoadVersion(version => version + 1)
+    })
+    return () => { mounted = false }
+  }, [])
+
   const showToast = (msg: string) => {
     setToast(msg)
     window.clearTimeout(toastTimer.current)
@@ -263,9 +284,9 @@ export default function App() {
     const res = await copyHtmlToClipboard(html, plainText)
 
     if (res.success) {
-      showToast('Copié !')
+      showToast(appendAlertSuffix('Copié !'))
     } else {
-      showToast(res.error || 'Erreur de copie.')
+      showToast(appendAlertSuffix(res.error || 'Erreur de copie.'))
     }
   }
 
@@ -278,21 +299,22 @@ export default function App() {
     const res = await copyHtmlToClipboard('', outline)
 
     if (res.success) {
-      showToast(`Copié : ${slides.length} diapositive${slides.length > 1 ? 's' : ''}. Collez dans PowerPoint > Affichage > Plan`)
+      showToast(appendAlertSuffix(`Copié : ${slides.length} diapositive${slides.length > 1 ? 's' : ''}. Collez dans PowerPoint > Affichage > Plan`))
     } else {
-      showToast(res.error || 'Erreur de copie.')
+      showToast(appendAlertSuffix(res.error || 'Erreur de copie.'))
     }
   }
 
   const handleExportPptx = async () => {
     if (slides.length === 0) return
     try {
-      const base64 = await buildPptxBase64(slides, settings)
+      const pptxSlides = slides.map((slide, index) => ({ ...slide, centered: layouts[index]?.centered }))
+      const base64 = await buildPptxBase64(pptxSlides, settings)
       const api = (window as any).api
       if (api?.savePptx) {
         const res = await api.savePptx({ base64, defaultName: 'Text2Slide.pptx' })
-        if (res?.success) showToast(`Présentation enregistrée (${slides.length} diapositives)`)
-        else if (!res?.canceled) showToast(res?.error || "Erreur lors de l'enregistrement.")
+        if (res?.success) showToast(appendAlertSuffix(`Présentation enregistrée (${slides.length} diapositives)`))
+        else if (!res?.canceled) showToast(appendAlertSuffix(res?.error || "Erreur lors de l'enregistrement."))
       } else {
         const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
         const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
@@ -301,9 +323,10 @@ export default function App() {
         a.download = 'Text2Slide.pptx'
         a.click()
         setTimeout(() => URL.revokeObjectURL(url), 1000)
+        showToast(appendAlertSuffix(`Présentation téléchargée (${slides.length} diapositives)`))
       }
     } catch (err: any) {
-      showToast(err?.message || 'Impossible de créer le fichier .pptx')
+      showToast(appendAlertSuffix(err?.message || 'Impossible de créer le fichier .pptx'))
     }
   }
 
@@ -336,7 +359,7 @@ export default function App() {
     if (activeSlideIndex > slides.length - 1) setActiveSlideIndex(Math.max(0, slides.length - 1))
   }, [slides.length])
 
-  const scale = previewWidth / 960
+  const scale = previewWidth / SLIDE_W
   const active = slides[activeSlideIndex]
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0
   const TEXT_SWATCHES = ['#1f2937', '#C43E1C', '#1d4ed8', '#047857', '#7c3aed', '#ffffff']
@@ -381,6 +404,14 @@ export default function App() {
           {updateState?.status === 'update-downloaded' && (
             <button onClick={installUpdate} className="text-xs font-medium px-3 py-1.5 rounded-full bg-brand text-white hover:bg-brand-hover transition-colors">
               Redémarrer pour installer la mise à jour
+            </button>
+          )}
+          {alertCount > 0 && (
+            <button
+              onClick={() => setActiveSlideIndex(layouts.findIndex(layout => layout.level !== 'ok'))}
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+            >
+              ⚠ {alertCount} diapo{alertCount > 1 ? 's' : ''} à vérifier
             </button>
           )}
 
@@ -448,6 +479,20 @@ export default function App() {
               </div>
             </div>
 
+            <div className="mt-4 max-w-xs">
+              <label className="lbl" htmlFor="vertical-alignment">Position verticale</label>
+              <select
+                id="vertical-alignment"
+                value={settings.vAlign}
+                onChange={e => setSettings({ ...settings, vAlign: e.target.value as VAlign })}
+                className="field"
+              >
+                <option value="auto">Auto (courtes centrées)</option>
+                <option value="middle">Toujours centré</option>
+                <option value="top">Toujours en haut</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <Swatches label="Couleur du texte" value={settings.textColor} colors={TEXT_SWATCHES} onChange={c => setSettings({ ...settings, textColor: c })} />
               <Swatches label="Couleur de fond" value={settings.bgColor} colors={BG_SWATCHES} onChange={c => setSettings({ ...settings, bgColor: c })} />
@@ -510,46 +555,140 @@ export default function App() {
               <>
                 <div
                   ref={previewRef}
-                  className="aspect-video w-full rounded-lg overflow-hidden shadow-md border border-surface-line dark:border-surface-line-dark"
+                  className="relative aspect-video w-full rounded-lg overflow-hidden shadow-md border border-surface-line dark:border-surface-line-dark"
                   style={{
                     color: settings.textColor,
                     backgroundColor: settings.bgColor,
-                    fontFamily: `'${settings.fontFamily}', sans-serif`,
-                    padding: `${40 * scale}px`
+                    fontFamily: `'${settings.fontFamily}', sans-serif`
                   }}
                 >
-                  {active.title && (
-                    <h3
-                      style={{
-                        fontSize: `${settings.fontSize * 1.35 * scale}px`,
-                        fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
-                        textAlign: settings.align,
-                        margin: `0 0 ${16 * scale}px 0`
-                      }}
-                    >
-                      {active.title}
-                    </h3>
-                  )}
-                  <div style={{ fontSize: `${settings.fontSize * scale}px`, textAlign: settings.align, lineHeight: settings.lineHeight, fontWeight: settings.boldAllText ? 700 : 400 }}>
-                    {active.bodyLines.map((line, i) => (
-                      <p key={i} style={{ margin: `0 0 ${8 * scale}px 0` }}>{line}</p>
-                    ))}
+                  <div
+                    className="absolute inset-0 flex flex-col"
+                    style={{
+                      boxSizing: 'border-box',
+                      padding: `${MARGIN * scale}px`,
+                      justifyContent: layouts[activeSlideIndex]?.centered ? 'center' : 'flex-start'
+                    }}
+                  >
+                    {active.title && (
+                      layouts[activeSlideIndex]?.centered ? (
+                        <h3 style={{
+                          fontSize: `${settings.fontSize * TITLE_SCALE * scale}px`,
+                          lineHeight: LINE_FACTOR,
+                          fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
+                          textAlign: settings.align,
+                          overflowWrap: 'break-word',
+                          margin: `0 0 ${TITLE_GAP * scale}px 0`
+                        }}>
+                          {active.title}
+                        </h3>
+                      ) : (
+                        <div style={{
+                          minHeight: `${TITLE_BOX_H * scale}px`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          marginBottom: `${(TITLE_BLOCK - TITLE_BOX_H) * scale}px`
+                        }}>
+                          <h3 style={{
+                            width: '100%',
+                            fontSize: `${settings.fontSize * TITLE_SCALE * scale}px`,
+                            lineHeight: LINE_FACTOR,
+                            fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
+                            textAlign: settings.align,
+                            overflowWrap: 'break-word',
+                            margin: 0
+                          }}>
+                            {active.title}
+                          </h3>
+                        </div>
+                      )
+                    )}
+                    <div style={{
+                      fontSize: `${settings.fontSize * scale}px`,
+                      textAlign: settings.align,
+                      lineHeight: settings.lineHeight * LINE_FACTOR,
+                      fontWeight: settings.boldAllText ? 700 : 400,
+                      overflowWrap: 'break-word'
+                    }}>
+                      {active.bodyLines.map((line, i) => {
+                        const isBullet = /^[-*•]\s+/.test(line)
+                        const cleanLine = isBullet ? line.replace(/^[-*•]\s+/, '') : line
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              position: 'relative',
+                              paddingLeft: isBullet ? `${BULLET_INDENT * scale}px` : 0,
+                              marginBottom: i < active.bodyLines.length - 1 ? `${PARA_AFTER * scale}px` : 0
+                            }}
+                          >
+                            {isBullet && <span aria-hidden="true" style={{ position: 'absolute', left: 0 }}>•</span>}
+                            {cleanLine}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
+                  {layouts[activeSlideIndex]?.level !== 'ok' && (
+                    <div
+                      aria-hidden="true"
+                      className={`absolute border-t-2 border-dashed ${
+                        layouts[activeSlideIndex]?.level === 'over' ? 'border-red-600' : 'border-amber-500'
+                      }`}
+                      style={{
+                        top: `${(SLIDE_H - MARGIN) * scale}px`,
+                        left: `${MARGIN * scale}px`,
+                        right: `${MARGIN * scale}px`
+                      }}
+                    />
+                  )}
+                  {layouts[activeSlideIndex]?.level === 'over' && (
+                    <div aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-1 bg-red-600" />
+                  )}
                 </div>
+
+                {layouts[activeSlideIndex]?.level !== 'ok' && (
+                  <div
+                    role="status"
+                    className={`mt-3 rounded-lg border px-4 py-3 text-sm ${
+                      layouts[activeSlideIndex]?.level === 'over'
+                        ? 'border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200'
+                        : 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
+                    }`}
+                  >
+                    <p className="font-medium">
+                      {layouts[activeSlideIndex]?.reason === 'title'
+                        ? 'Le titre est trop long pour son cadre.'
+                        : layouts[activeSlideIndex]?.level === 'over'
+                          ? `Le texte dépasse de la diapositive (~${layouts[activeSlideIndex]?.excessLines} ligne${layouts[activeSlideIndex]?.excessLines === 1 ? '' : 's'} en trop).`
+                          : 'Le texte touche la marge de sécurité : il est très près du bord.'}
+                    </p>
+                    <p className="mt-1 opacity-90">Vous pouvez l’exporter telle quelle ; réduisez la taille, scindez le texte ou ignorez cette alerte.</p>
+                  </div>
+                )}
 
                 <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
                   {slides.map((s, idx) => (
                     <button
                       key={idx}
                       onClick={() => setActiveSlideIndex(idx)}
-                      aria-label={`Diapositive ${idx + 1}`}
-                      className={`shrink-0 w-24 aspect-video rounded-md p-1.5 text-left overflow-hidden border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                      aria-label={`Diapositive ${idx + 1}${layouts[idx]?.level !== 'ok' ? ', à vérifier' : ''}`}
+                      className={`relative shrink-0 w-24 aspect-video rounded-md p-1.5 text-left overflow-hidden border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
                         idx === activeSlideIndex ? 'border-brand dark:border-brand-dark' : 'border-surface-line dark:border-surface-line-dark hover:border-brand/50'
                       }`}
                       style={{ backgroundColor: settings.bgColor, color: settings.textColor }}
                     >
                       <span className="block text-[8px] leading-tight font-semibold truncate">{idx + 1}. {s.title || s.bodyLines[0]}</span>
                       <span className="block text-[6px] leading-tight opacity-70 line-clamp-3">{(s.title ? s.bodyLines : s.bodyLines.slice(1)).join(' ')}</span>
+                      {layouts[idx]?.level !== 'ok' && (
+                        <span
+                          role="img"
+                          aria-label={layouts[idx]?.level === 'over' ? 'Débordement' : 'À vérifier'}
+                          className={`absolute top-1 right-1 w-3 h-3 rounded-full ${
+                            layouts[idx]?.level === 'over' ? 'bg-red-600' : 'bg-amber-500'
+                          }`}
+                        />
+                      )}
                     </button>
                   ))}
                 </div>

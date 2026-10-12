@@ -1,0 +1,134 @@
+export const SLIDE_W = 960
+export const SLIDE_H = 540
+export const MARGIN = 50.4
+export const TITLE_BOX_H = 79.2
+export const TITLE_BLOCK = 93.6
+export const TITLE_GAP = 16
+export const TITLE_SCALE = 1.35
+export const PARA_AFTER = 8
+export const BULLET_INDENT = 27
+export const LINE_FACTOR = 1.2
+const AUTO_CENTER_RATIO = 0.4
+
+export type VAlign = 'auto' | 'top' | 'middle'
+export type OverflowLevel = 'ok' | 'warn' | 'over'
+
+export interface LayoutSlide {
+  title: string
+  bodyLines: string[]
+}
+
+export interface LayoutSettings {
+  fontFamily: string
+  fontSize: number
+  lineHeight: number
+  boldTitle: boolean
+  boldAllText: boolean
+  vAlign: VAlign
+}
+
+export interface SlideLayout {
+  centered: boolean
+  level: OverflowLevel
+  reason: 'body' | 'title' | null
+  excessLines: number
+}
+
+const BULLET_PATTERN = /^[-*•]\s+/
+const SAFE_H = SLIDE_H - 2 * MARGIN
+
+export function measureSlides(slides: LayoutSlide[], settings: LayoutSettings): SlideLayout[] {
+  const container = document.createElement('div')
+  Object.assign(container.style, {
+    position: 'absolute',
+    left: '-99999px',
+    top: '0',
+    visibility: 'hidden',
+    width: `${SLIDE_W - 2 * MARGIN}px`,
+    fontFamily: `'${settings.fontFamily}', sans-serif`,
+    overflowWrap: 'break-word'
+  })
+  document.body.appendChild(container)
+
+  try {
+    return slides.map(slide => {
+      container.replaceChildren()
+
+      const title = slide.title ? document.createElement('div') : null
+      if (title) {
+        title.textContent = slide.title
+        Object.assign(title.style, {
+          width: '100%',
+          fontSize: `${settings.fontSize * TITLE_SCALE}px`,
+          lineHeight: String(LINE_FACTOR),
+          fontWeight: settings.boldTitle || settings.boldAllText ? '700' : '400',
+          overflowWrap: 'break-word'
+        })
+        container.appendChild(title)
+      }
+      const titleH = title?.offsetHeight ?? 0
+
+      const body = document.createElement('div')
+      Object.assign(body.style, {
+        width: '100%',
+        fontSize: `${settings.fontSize}px`,
+        lineHeight: String(settings.lineHeight * LINE_FACTOR),
+        fontWeight: settings.boldAllText ? '700' : '400',
+        overflowWrap: 'break-word'
+      })
+
+      slide.bodyLines.forEach((line, index) => {
+        const paragraph = document.createElement('div')
+        const isBullet = BULLET_PATTERN.test(line)
+        paragraph.textContent = isBullet ? line.replace(BULLET_PATTERN, '') : line
+        Object.assign(paragraph.style, {
+          width: '100%',
+          boxSizing: 'border-box',
+          paddingLeft: isBullet ? `${BULLET_INDENT}px` : '0',
+          marginBottom: index < slide.bodyLines.length - 1 ? `${PARA_AFTER}px` : '0',
+          overflowWrap: 'break-word'
+        })
+        body.appendChild(paragraph)
+      })
+      container.appendChild(body)
+      const bodyH = body.offsetHeight
+
+      const blockH = titleH + (titleH && bodyH ? TITLE_GAP : 0) + bodyH
+      const centered = settings.vAlign === 'middle' ||
+        (settings.vAlign === 'auto' && blockH <= SAFE_H * AUTO_CENTER_RATIO)
+      const lineStep = settings.fontSize * LINE_FACTOR * settings.lineHeight
+      let level: OverflowLevel = 'ok'
+      let reason: SlideLayout['reason'] = null
+      let excessLines = 0
+
+      if (centered) {
+        if (blockH > SLIDE_H) {
+          level = 'over'
+          reason = 'body'
+          excessLines = Math.ceil((blockH - SLIDE_H) / lineStep)
+        } else if (blockH > SAFE_H) {
+          level = 'warn'
+          reason = 'body'
+        }
+      } else {
+        const top = MARGIN + (titleH ? TITLE_BLOCK : 0)
+        const bottom = top + bodyH
+        if (bottom > SLIDE_H) {
+          level = 'over'
+          reason = 'body'
+          excessLines = Math.ceil((bottom - SLIDE_H) / lineStep)
+        } else if (bottom > SLIDE_H - MARGIN) {
+          level = 'warn'
+          reason = 'body'
+        } else if (titleH > TITLE_BOX_H) {
+          level = 'warn'
+          reason = 'title'
+        }
+      }
+
+      return { centered, level, reason, excessLines }
+    })
+  } finally {
+    container.remove()
+  }
+}

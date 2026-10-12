@@ -1,4 +1,5 @@
 import PptxGenJS from 'pptxgenjs'
+import { BULLET_INDENT, LINE_FACTOR, MARGIN, PARA_AFTER, SLIDE_H, SLIDE_W, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE } from './layout'
 
 export interface PptxSettings {
   fontFamily: string
@@ -14,6 +15,7 @@ export interface PptxSettings {
 export interface PptxSlide {
   title: string
   bodyLines: string[]
+  centered?: boolean
 }
 
 const hex = (c: string) => c.replace('#', '').toUpperCase()
@@ -25,50 +27,73 @@ export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Pro
   pptx.title = 'Text2Slide'
 
   const align = s.align === 'justify' ? 'justify' : s.align
-  const W = 13.33
-  const MARGIN = 0.7
+  const width = SLIDE_W / 72
+  const height = SLIDE_H / 72
+  const margin = MARGIN / 72
 
   for (const slide of slides) {
     const sl = pptx.addSlide()
     sl.background = { color: hex(s.bgColor) }
 
-    let top = MARGIN
-    if (slide.title) {
-      sl.addText(slide.title, {
-        x: MARGIN, y: top, w: W - MARGIN * 2, h: 1.1,
-        fontFace: s.fontFamily,
-        fontSize: Math.round(s.fontSize * 1.35),
-        bold: s.boldTitle || s.boldAllText,
-        color: hex(s.textColor),
-        align, valign: 'middle', margin: 0, fit: 'shrink'
-      })
-      top += 1.3
-    }
-
-    const runs = slide.bodyLines.map((line, i) => {
+    const bodyRuns = slide.bodyLines.map((line, i) => {
       const isBullet = /^[-*•]\s+/.test(line)
       const clean = line.replace(/^[-*•]\s+/, '')
       return {
         text: clean,
         options: {
           breakLine: i < slide.bodyLines.length - 1,
-          bullet: isBullet ? true : false,
-          paraSpaceAfter: 8
+          fontSize: s.fontSize,
+          bold: s.boldAllText,
+          bullet: isBullet ? { indent: BULLET_INDENT } : false,
+          paraSpaceAfter: i < slide.bodyLines.length - 1 ? PARA_AFTER : 0,
+          lineSpacingMultiple: s.lineHeight * LINE_FACTOR
         }
       }
     })
 
-    if (runs.length) {
-      sl.addText(runs as any, {
-        x: MARGIN, y: top, w: W - MARGIN * 2, h: 7.5 - top - MARGIN,
-        fontFace: s.fontFamily,
-        fontSize: s.fontSize,
-        bold: s.boldAllText,
-        color: hex(s.textColor),
-        align, valign: 'top', margin: 0,
-        lineSpacingMultiple: s.lineHeight,
-        fit: 'shrink'
-      })
+    if (slide.centered) {
+      const runs = [
+        ...(slide.title ? [{
+          text: slide.title,
+          options: {
+            fontSize: Math.round(s.fontSize * TITLE_SCALE),
+            bold: s.boldTitle || s.boldAllText,
+            breakLine: true,
+            paraSpaceAfter: TITLE_GAP
+          }
+        }] : []),
+        ...bodyRuns
+      ]
+      if (runs.length) {
+        sl.addText(runs, {
+          x: margin, y: margin, w: width - margin * 2, h: height - margin * 2,
+          fontFace: s.fontFamily,
+          color: hex(s.textColor),
+          align, valign: 'middle', margin: 0
+        })
+      }
+    } else {
+      let top = margin
+      if (slide.title) {
+        sl.addText(slide.title, {
+          x: margin, y: top, w: width - margin * 2, h: TITLE_BOX_H / 72,
+          fontFace: s.fontFamily,
+          fontSize: Math.round(s.fontSize * TITLE_SCALE),
+          bold: s.boldTitle || s.boldAllText,
+          color: hex(s.textColor),
+          align, valign: 'middle', margin: 0
+        })
+        top += TITLE_BLOCK / 72
+      }
+
+      if (bodyRuns.length) {
+        sl.addText(bodyRuns, {
+          x: margin, y: top, w: width - margin * 2, h: height - top - margin,
+          fontFace: s.fontFamily,
+          color: hex(s.textColor),
+          align, valign: 'top', margin: 0
+        })
+      }
     }
   }
 
