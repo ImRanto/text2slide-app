@@ -1,6 +1,6 @@
 {
   "name": "text2slide",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Application de bureau Windows 100% hors-ligne pour formater et copier du texte vers PowerPoint",
   "main": "out/main/main.js",
   "scripts": {
