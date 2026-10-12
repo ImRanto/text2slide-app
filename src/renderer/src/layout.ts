@@ -114,7 +114,7 @@ export function measureSlides(slides: LayoutSlide[], settings: LayoutSettings): 
           level = 'over'
           reason = 'body'
           excessLines = Math.ceil((blockH - height) / lineStep)
-        } else if (blockH > SAFE_H) {
+        } else if (blockH > safeH) {
           level = 'warn'
           reason = 'body'
         }
