@@ -59,22 +59,7 @@
     },
     "files": [
       "out/**/*",
-      "!**/*.map",
-      "!**/*.ts",
-      "!**/*.tsx",
-      "!**/__tests__/**",
-      "!**/test/**",
-      "!**/*.md",
-      "!**/README*",
-      "!**/docs/**",
-      "!**/examples/**",
-      "!**/src/**",
-      "!**/electron/**",
-      "!**/*.psd",
-      "!**/*.xcf",
-      "!**/node_modules/**/test/**",
-      "!**/node_modules/**/docs/**",
-      "!**/node_modules/**/README*"
+      "!**/*.map"
     ]
   }
 }
