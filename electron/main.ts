@@ -10,7 +10,11 @@ function createWindow(): void {
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
     const url = details.url
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      if (!url.includes('localhost') && !url.includes('127.0.0.1')) {
+      let host = ''
+      try { host = new URL(url).hostname } catch {}
+      // Autorise uniquement GitHub (mises à jour). Tout le reste reste bloqué.
+      const isGithub = host === 'github.com' || host.endsWith('.github.com') || host.endsWith('.githubusercontent.com')
+      if (!isGithub && !url.includes('localhost') && !url.includes('127.0.0.1')) {
         callback({ cancel: true })
         return
       }
@@ -125,6 +129,8 @@ app.whenReady().then(() => {
       console.warn('autoUpdater init failed', err)
     }
   }
+
+  ipcMain.handle('app:version', () => app.getVersion())
 
   ipcMain.handle('update:install', async () => {
     try {

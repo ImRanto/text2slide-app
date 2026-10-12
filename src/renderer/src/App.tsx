@@ -130,6 +130,7 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null)
   const [activeSlideIndex, setActiveSlideIndex] = useState(0)
   const [updateState, setUpdateState] = useState<UpdateState | null>(null)
+  const [appVersion, setAppVersion] = useState('')
 
   useEffect(() => {
     localStorage.setItem('text2slide_settings', JSON.stringify(settings))
@@ -155,6 +156,11 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [text, settings, activeSlideIndex])
+
+  useEffect(() => {
+    const api = (window as any).api
+    api?.getVersion?.().then((v: string) => setAppVersion(v)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const api = (window as any).api
@@ -348,6 +354,14 @@ export default function App() {
             </svg>
           </div>
           <span className="text-base font-semibold tracking-tight">Text2Slide</span>
+          {appVersion && (
+            <span className="text-xs text-surface-mute dark:text-surface-mute-dark" title="Version installée">
+              v{appVersion}
+              {updateState?.status === 'checking' && ' · recherche de mise à jour…'}
+              {updateState?.status === 'update-not-available' && ' · à jour ✓'}
+              {updateState?.status === 'error' && ' · mise à jour impossible'}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

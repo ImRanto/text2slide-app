@@ -9,6 +9,7 @@ const api = {
     return () => ipcRenderer.removeListener('update-status', listener)
   },
   savePptx: (data: { base64: string; defaultName: string }) => ipcRenderer.invoke('pptx:save', data),
+  getVersion: () => ipcRenderer.invoke('app:version'),
   installUpdate: () => ipcRenderer.invoke('update:install')
 }
 
