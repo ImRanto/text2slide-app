@@ -359,7 +359,7 @@ export default function App() {
               v{appVersion}
               {updateState?.status === 'checking' && ' · recherche de mise à jour…'}
               {updateState?.status === 'update-not-available' && ' · à jour ✓'}
-              {updateState?.status === 'error' && ' · mise à jour impossible'}
+              {updateState?.status === 'error' && ` · mise à jour impossible (${String(updateState.error || 'erreur inconnue').split('\n')[0].slice(0, 90)})`}
             </span>
           )}
         </div>
