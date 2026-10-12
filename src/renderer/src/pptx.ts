@@ -1,5 +1,5 @@
 import PptxGenJS from 'pptxgenjs'
-import { BULLET_INDENT, LINE_FACTOR, MARGIN, PARA_AFTER, SLIDE_H, SLIDE_W, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE } from './layout'
+import { BULLET_INDENT, getSlideDimensions, LINE_FACTOR, MARGIN, PARA_AFTER, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, type SlideFormat } from './layout'
 
 export interface PptxSettings {
   fontFamily: string
@@ -8,6 +8,7 @@ export interface PptxSettings {
   bgColor: string
   lineHeight: number
   align: 'left' | 'center' | 'right' | 'justify'
+  slideFormat: SlideFormat
   boldTitle: boolean
   boldAllText: boolean
 }
@@ -23,12 +24,13 @@ const hex = (c: string) => c.replace('#', '').toUpperCase()
 /** Génère un .pptx (une diapositive par bloc de texte) et le renvoie en base64. */
 export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Promise<string> {
   const pptx = new PptxGenJS()
-  pptx.layout = 'LAYOUT_WIDE' // 13.33 x 7.5 in (16:9)
+  pptx.layout = s.slideFormat === '4:3' ? 'LAYOUT_4X3' : 'LAYOUT_WIDE'
   pptx.title = 'Text2Slide'
 
   const align = s.align === 'justify' ? 'justify' : s.align
-  const width = SLIDE_W / 72
-  const height = SLIDE_H / 72
+  const dimensions = getSlideDimensions(s.slideFormat)
+  const width = dimensions.width / 72
+  const height = dimensions.height / 72
   const margin = MARGIN / 72
 
   for (const slide of slides) {

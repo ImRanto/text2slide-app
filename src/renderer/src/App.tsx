@@ -1,6 +1,6 @@
 import { buildPptxBase64, buildOutlineText } from './pptx'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { BULLET_INDENT, LINE_FACTOR, MARGIN, PARA_AFTER, SLIDE_H, SLIDE_W, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type VAlign } from './layout'
+import { BULLET_INDENT, getSlideDimensions, LINE_FACTOR, MARGIN, PARA_AFTER, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
 
 interface StyleSettings {
   fontFamily: string
@@ -10,6 +10,7 @@ interface StyleSettings {
   lineHeight: number
   align: 'left' | 'center' | 'right' | 'justify'
   vAlign: VAlign
+  slideFormat: SlideFormat
   useFirstLineAsTitle: boolean
   boldTitle: boolean
   boldAllText: boolean
@@ -30,6 +31,7 @@ const DEFAULT_SETTINGS: StyleSettings = {
   lineHeight: 1.4,
   align: 'left',
   vAlign: 'auto',
+  slideFormat: '16:9',
   useFirstLineAsTitle: false,
   boldTitle: true,
   boldAllText: false
@@ -216,7 +218,7 @@ export default function App() {
 
   const layouts = useMemo(
     () => measureSlides(slides, settings),
-    [slides, settings.fontFamily, settings.fontSize, settings.lineHeight, settings.boldTitle, settings.boldAllText, settings.vAlign, fontLoadVersion]
+    [slides, settings.fontFamily, settings.fontSize, settings.lineHeight, settings.boldTitle, settings.boldAllText, settings.vAlign, settings.slideFormat, fontLoadVersion]
   )
   const alertCount = layouts.filter(layout => layout.level !== 'ok').length
   const appendAlertSuffix = (message: string) => alertCount
@@ -359,7 +361,8 @@ export default function App() {
     if (activeSlideIndex > slides.length - 1) setActiveSlideIndex(Math.max(0, slides.length - 1))
   }, [slides.length])
 
-  const scale = previewWidth / SLIDE_W
+  const { width: slideWidth, height: slideHeight } = getSlideDimensions(settings.slideFormat)
+  const scale = previewWidth / slideWidth
   const active = slides[activeSlideIndex]
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0
   const TEXT_SWATCHES = ['#1f2937', '#C43E1C', '#1d4ed8', '#047857', '#7c3aed', '#ffffff']
@@ -480,6 +483,19 @@ export default function App() {
             </div>
 
             <div className="mt-4 max-w-xs">
+              <label className="lbl" htmlFor="slide-format">Format de diapositive</label>
+              <select
+                id="slide-format"
+                value={settings.slideFormat}
+                onChange={e => setSettings({ ...settings, slideFormat: e.target.value as SlideFormat })}
+                className="field"
+              >
+                <option value="16:9">Écran large (16:9)</option>
+                <option value="4:3">Standard (4:3)</option>
+              </select>
+            </div>
+
+            <div className="mt-4 max-w-xs">
               <label className="lbl" htmlFor="vertical-alignment">Position verticale</label>
               <select
                 id="vertical-alignment"
@@ -544,7 +560,7 @@ export default function App() {
             </div>
 
             {!active ? (
-              <div className="aspect-video rounded-lg border-2 border-dashed border-surface-line dark:border-surface-line-dark flex flex-col items-center justify-center text-center p-6 gap-2">
+              <div style={{ aspectRatio: `${slideWidth} / ${slideHeight}` }} className="rounded-lg border-2 border-dashed border-surface-line dark:border-surface-line-dark flex flex-col items-center justify-center text-center p-6 gap-2">
                 <div className="w-10 h-10 rounded-full bg-brand-soft dark:bg-surface-line-dark text-brand dark:text-brand-dark flex items-center justify-center">
                   <Icon d="M3 5h18v12H3zM8 21h8" />
                 </div>
@@ -555,8 +571,9 @@ export default function App() {
               <>
                 <div
                   ref={previewRef}
-                  className="relative aspect-video w-full rounded-lg overflow-hidden shadow-md border border-surface-line dark:border-surface-line-dark"
+                  className="relative w-full rounded-lg overflow-hidden shadow-md border border-surface-line dark:border-surface-line-dark"
                   style={{
+                    aspectRatio: `${slideWidth} / ${slideHeight}`,
                     color: settings.textColor,
                     backgroundColor: settings.bgColor,
                     fontFamily: `'${settings.fontFamily}', sans-serif`
@@ -636,7 +653,7 @@ export default function App() {
                         layouts[activeSlideIndex]?.level === 'over' ? 'border-red-600' : 'border-amber-500'
                       }`}
                       style={{
-                        top: `${(SLIDE_H - MARGIN) * scale}px`,
+                        top: `${(slideHeight - MARGIN) * scale}px`,
                         left: `${MARGIN * scale}px`,
                         right: `${MARGIN * scale}px`
                       }}
@@ -673,10 +690,10 @@ export default function App() {
                       key={idx}
                       onClick={() => setActiveSlideIndex(idx)}
                       aria-label={`Diapositive ${idx + 1}${layouts[idx]?.level !== 'ok' ? ', à vérifier' : ''}`}
-                      className={`relative shrink-0 w-24 aspect-video rounded-md p-1.5 text-left overflow-hidden border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                      className={`relative shrink-0 w-24 rounded-md p-1.5 text-left overflow-hidden border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
                         idx === activeSlideIndex ? 'border-brand dark:border-brand-dark' : 'border-surface-line dark:border-surface-line-dark hover:border-brand/50'
                       }`}
-                      style={{ backgroundColor: settings.bgColor, color: settings.textColor }}
+                      style={{ backgroundColor: settings.bgColor, color: settings.textColor, aspectRatio: `${slideWidth} / ${slideHeight}` }}
                     >
                       <span className="block text-[8px] leading-tight font-semibold truncate">{idx + 1}. {s.title || s.bodyLines[0]}</span>
                       <span className="block text-[6px] leading-tight opacity-70 line-clamp-3">{(s.title ? s.bodyLines : s.bodyLines.slice(1)).join(' ')}</span>

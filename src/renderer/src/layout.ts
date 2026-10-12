@@ -1,5 +1,11 @@
 export const SLIDE_W = 960
 export const SLIDE_H = 540
+export type SlideFormat = '16:9' | '4:3'
+
+export function getSlideDimensions(format: SlideFormat): { width: number; height: number } {
+  return { width: format === '4:3' ? 720 : SLIDE_W, height: SLIDE_H }
+}
+
 export const MARGIN = 50.4
 export const TITLE_BOX_H = 79.2
 export const TITLE_BLOCK = 93.6
@@ -25,6 +31,7 @@ export interface LayoutSettings {
   boldTitle: boolean
   boldAllText: boolean
   vAlign: VAlign
+  slideFormat: SlideFormat
 }
 
 export interface SlideLayout {
@@ -35,16 +42,17 @@ export interface SlideLayout {
 }
 
 const BULLET_PATTERN = /^[-*•]\s+/
-const SAFE_H = SLIDE_H - 2 * MARGIN
 
 export function measureSlides(slides: LayoutSlide[], settings: LayoutSettings): SlideLayout[] {
+  const { width, height } = getSlideDimensions(settings.slideFormat)
+  const safeH = height - 2 * MARGIN
   const container = document.createElement('div')
   Object.assign(container.style, {
     position: 'absolute',
     left: '-99999px',
     top: '0',
     visibility: 'hidden',
-    width: `${SLIDE_W - 2 * MARGIN}px`,
+    width: `${width - 2 * MARGIN}px`,
     fontFamily: `'${settings.fontFamily}', sans-serif`,
     overflowWrap: 'break-word'
   })
@@ -95,17 +103,17 @@ export function measureSlides(slides: LayoutSlide[], settings: LayoutSettings): 
 
       const blockH = titleH + (titleH && bodyH ? TITLE_GAP : 0) + bodyH
       const centered = settings.vAlign === 'middle' ||
-        (settings.vAlign === 'auto' && blockH <= SAFE_H * AUTO_CENTER_RATIO)
+        (settings.vAlign === 'auto' && blockH <= safeH * AUTO_CENTER_RATIO)
       const lineStep = settings.fontSize * LINE_FACTOR * settings.lineHeight
       let level: OverflowLevel = 'ok'
       let reason: SlideLayout['reason'] = null
       let excessLines = 0
 
       if (centered) {
-        if (blockH > SLIDE_H) {
+        if (blockH > height) {
           level = 'over'
           reason = 'body'
-          excessLines = Math.ceil((blockH - SLIDE_H) / lineStep)
+          excessLines = Math.ceil((blockH - height) / lineStep)
         } else if (blockH > SAFE_H) {
           level = 'warn'
           reason = 'body'
@@ -113,11 +121,11 @@ export function measureSlides(slides: LayoutSlide[], settings: LayoutSettings): 
       } else {
         const top = MARGIN + (titleH ? TITLE_BLOCK : 0)
         const bottom = top + bodyH
-        if (bottom > SLIDE_H) {
+        if (bottom > height) {
           level = 'over'
           reason = 'body'
-          excessLines = Math.ceil((bottom - SLIDE_H) / lineStep)
-        } else if (bottom > SLIDE_H - MARGIN) {
+          excessLines = Math.ceil((bottom - height) / lineStep)
+        } else if (bottom > height - MARGIN) {
           level = 'warn'
           reason = 'body'
         } else if (titleH > TITLE_BOX_H) {
