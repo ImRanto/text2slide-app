@@ -24,11 +24,16 @@ const hex = (c: string) => c.replace('#', '').toUpperCase()
 /** Génère un .pptx (une diapositive par bloc de texte) et le renvoie en base64. */
 export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Promise<string> {
   const pptx = new PptxGenJS()
-  pptx.layout = s.slideFormat === '4:3' ? 'LAYOUT_4X3' : 'LAYOUT_WIDE'
+  const dimensions = getSlideDimensions(s.slideFormat)
+  pptx.defineLayout({
+    name: 'TEXT2SLIDE_CUSTOM',
+    width: dimensions.width / 72,
+    height: dimensions.height / 72
+  })
+  pptx.layout = 'TEXT2SLIDE_CUSTOM'
   pptx.title = 'Text2Slide'
 
   const align = s.align === 'justify' ? 'justify' : s.align
-  const dimensions = getSlideDimensions(s.slideFormat)
   const width = dimensions.width / 72
   const height = dimensions.height / 72
   const margin = MARGIN / 72
