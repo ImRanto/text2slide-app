@@ -1,3 +1,4 @@
+import { buildPptxBase64, buildOutlineText } from './pptx'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 
 interface StyleSettings {
@@ -40,6 +41,15 @@ async function copyHtmlToClipboard(html: string, text: string): Promise<{ succes
       if (res?.success) return { success: true }
     } catch (error: any) {
       console.warn('IPC clipboard failed:', error)
+    }
+  }
+
+  if (!html) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'Impossible de copier le contenu.' }
     }
   }
 
@@ -256,21 +266,38 @@ export default function App() {
   const handleCopyAllSlides = async () => {
     if (slides.length === 0) return
 
-    let combinedHtml = ''
-    let combinedText = ''
-
-    slides.forEach((slide, idx) => {
-      combinedHtml += generateSingleSlideHtml(slide)
-      combinedText += `${slide.title ? slide.title + '\n' : ''}${slide.bodyLines.join('\n')}`
-      if (idx < slides.length - 1) combinedText += '\n\n---\n\n'
-    })
-
-    const res = await copyHtmlToClipboard(combinedHtml, combinedText)
+    // Format "plan" : collé dans PowerPoint (Affichage > Plan, ou volet des miniatures),
+    // chaque bloc devient une diapositive distincte.
+    const outline = buildOutlineText(slides, settings.useFirstLineAsTitle)
+    const res = await copyHtmlToClipboard('', outline)
 
     if (res.success) {
-      showToast(`Copié ! ${slides.length} diapositives.`)
+      showToast(`Copié : ${slides.length} diapositive${slides.length > 1 ? 's' : ''}. Collez dans PowerPoint > Affichage > Plan`)
     } else {
       showToast(res.error || 'Erreur de copie.')
+    }
+  }
+
+  const handleExportPptx = async () => {
+    if (slides.length === 0) return
+    try {
+      const base64 = await buildPptxBase64(slides, settings)
+      const api = (window as any).api
+      if (api?.savePptx) {
+        const res = await api.savePptx({ base64, defaultName: 'Text2Slide.pptx' })
+        if (res?.success) showToast(`Présentation enregistrée (${slides.length} diapositives)`)
+        else if (!res?.canceled) showToast(res?.error || "Erreur lors de l'enregistrement.")
+      } else {
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'Text2Slide.pptx'
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Impossible de créer le fichier .pptx')
     }
   }
 
@@ -444,8 +471,11 @@ export default function App() {
             <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
               <h2 className="text-sm font-semibold">Aperçu</h2>
               <div className="flex items-center gap-2">
-                <button onClick={handleCopyAllSlides} disabled={slides.length === 0} className="btn">
+                <button onClick={handleCopyAllSlides} disabled={slides.length === 0} className="btn" title="Copie toutes les diapositives. Collez dans PowerPoint : Affichage > Plan (1 bloc = 1 diapositive)">
                   Copier tout
+                </button>
+                <button onClick={handleExportPptx} disabled={slides.length === 0} className="btn" title="Crée un fichier PowerPoint avec une diapositive par bloc de texte">
+                  <Icon d="M12 3v12M7 10l5 5 5-5M5 21h14" /> Exporter .pptx
                 </button>
                 <button onClick={() => handleCopySlide(activeSlideIndex)} disabled={!active} className="btn-primary !h-9">
                   <Icon d="M9 9h10v10H9zM5 15V5h10" /> Copier la diapositive

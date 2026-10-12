@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, clipboard, session } from 'electron'
+import { app, BrowserWindow, ipcMain, clipboard, session, dialog, shell } from 'electron'
+import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
@@ -59,11 +60,31 @@ app.whenReady().then(() => {
 
   ipcMain.handle('clipboard:write-powerpoint', async (_, { html, text }) => {
     try {
-      clipboard.write({
-        html,
-        text
-      })
+      if (html) {
+        clipboard.write({ html, text })
+      } else {
+        clipboard.writeText(text)
+      }
       return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('pptx:save', async (_, { base64, defaultName }) => {
+    try {
+      const target = mainWindow
+        ? await dialog.showSaveDialog(mainWindow, {
+            title: 'Enregistrer la présentation',
+            defaultPath: join(app.getPath('documents'), defaultName || 'Text2Slide.pptx'),
+            filters: [{ name: 'Présentation PowerPoint', extensions: ['pptx'] }]
+          })
+        : await dialog.showSaveDialog({ defaultPath: defaultName || 'Text2Slide.pptx' })
+      if (target.canceled || !target.filePath) return { success: false, canceled: true }
+      await writeFile(target.filePath, Buffer.from(base64, 'base64'))
+      shell.showItemInFolder(target.filePath)
+      shell.openPath(target.filePath)
+      return { success: true, path: target.filePath }
     } catch (error: any) {
       return { success: false, error: error?.message || String(error) }
     }
