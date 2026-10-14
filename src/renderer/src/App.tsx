@@ -1,6 +1,7 @@
 import { buildPptxBase64, buildOutlineText } from './pptx'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { BULLET_INDENT, getSlideDimensions, LINE_FACTOR, MARGIN, PARA_AFTER, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
+import { normalizeText } from './normalize'
 
 interface StyleSettings {
   fontFamily: string
@@ -14,6 +15,8 @@ interface StyleSettings {
   useFirstLineAsTitle: boolean
   boldTitle: boolean
   boldAllText: boolean
+  linesPerSlide: 1 | 2 | 3
+  keepExistingBreaks: boolean
 }
 
 interface UpdateState {
@@ -34,7 +37,9 @@ const DEFAULT_SETTINGS: StyleSettings = {
   slideFormat: '16:9',
   useFirstLineAsTitle: false,
   boldTitle: true,
-  boldAllText: false
+  boldAllText: false,
+  linesPerSlide: 2,
+  keepExistingBreaks: true
 }
 
 async function copyHtmlToClipboard(html: string, text: string): Promise<{ success: boolean; error?: string }> {
@@ -123,11 +128,18 @@ export default function App() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [previewWidth, setPreviewWidth] = useState(520)
   const previewRef = useRef<HTMLDivElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
   const [settings, setSettings] = useState<StyleSettings>(() => {
     try {
       const saved = localStorage.getItem('text2slide_settings')
-      return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        const linesPerSlide = [1, 2, 3].includes(parsed.linesPerSlide) ? (parsed.linesPerSlide as 1 | 2 | 3) : 2
+        const keepExistingBreaks = typeof parsed.keepExistingBreaks === 'boolean' ? parsed.keepExistingBreaks : true
+        return { ...DEFAULT_SETTINGS, ...parsed, linesPerSlide, keepExistingBreaks }
+      }
+      return DEFAULT_SETTINGS
     } catch {
       return DEFAULT_SETTINGS
     }
@@ -139,7 +151,9 @@ export default function App() {
   const [fontLoadVersion, setFontLoadVersion] = useState(0)
 
   useEffect(() => {
-    localStorage.setItem('text2slide_settings', JSON.stringify(settings))
+    try {
+      localStorage.setItem('text2slide_settings', JSON.stringify(settings))
+    } catch {}
   }, [settings])
 
   useEffect(() => {
@@ -182,16 +196,50 @@ export default function App() {
   }, [])
 
   const handleCleanText = () => {
-    const cleaned = text
-      .replace(/\r\n/g, '\n')
-      .replace(/[ \t]+/g, ' ')
-      .replace(/\n\s*\n\s*\n/g, '\n\n')
-      .split('\n')
-      .map(line => line.trim())
-      .join('\n')
+    const result = normalizeText(text, {
+      linesPerSlide: settings.linesPerSlide,
+      keepExistingBreaks: settings.keepExistingBreaks
+    })
 
-    setText(cleaned)
-    showToast('Opération réussie. Le texte a été normalisé.')
+    if (result === text) {
+      if (settings.keepExistingBreaks) {
+        showToast('Aucun changement. Décochez « Conserver les couplets existants » pour regrouper à nouveau.')
+      } else {
+        showToast('Aucun changement.')
+      }
+      return
+    }
+
+    const ta = textareaRef.current
+    if (ta) {
+      ta.focus()
+      ta.select()
+      const ok = document.execCommand('insertText', false, result)
+      if (!ok) setText(result)
+      ta.setSelectionRange(result.length, result.length)
+    } else {
+      setText(result)
+    }
+
+    const slideCount = result.trim() ? result.split(/\n\s*\n/).filter(b => b.trim().length > 0).length : 0
+    showToast(`Normalisé : ${slideCount} diapositive${slideCount > 1 ? 's' : ''}`)
+  }
+
+  const handleRadioKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, currentVal: 1 | 2 | 3) => {
+    if (['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(e.key)) {
+      e.preventDefault()
+      let nextVal: 1 | 2 | 3 = currentVal
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        nextVal = currentVal === 1 ? 3 : ((currentVal - 1) as 1 | 2 | 3)
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        nextVal = currentVal === 3 ? 1 : ((currentVal + 1) as 1 | 2 | 3)
+      }
+      setSettings(s => ({ ...s, linesPerSlide: nextVal }))
+      const buttons = e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+      if (buttons) {
+        buttons[nextVal - 1]?.focus()
+      }
+    }
   }
 
   const slides = useMemo(() => {
@@ -427,17 +475,62 @@ export default function App() {
       <main className="flex-1 min-h-0 grid grid-cols-1 min-[900px]:grid-cols-2 gap-5 p-5 overflow-y-auto">
         {/* Colonne texte */}
         <section className="card flex flex-col p-5 min-h-[320px]">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div>
-              <h2 className="text-sm font-semibold">Texte source</h2>
-              <p className="text-xs text-surface-mute dark:text-surface-mute-dark mt-0.5">Une ligne vide ou « --- » sépare les diapositives</p>
+          <div className="flex flex-col gap-3 mb-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="text-sm font-semibold">Texte source</h2>
+                <p className="text-xs text-surface-mute dark:text-surface-mute-dark mt-0.5">Une ligne vide ou « --- » sépare les diapositives</p>
+              </div>
+              <button onClick={handleCleanText} disabled={!text.trim()} className="btn whitespace-nowrap">
+                <Icon d="M4 7h16M4 12h10M4 17h6" /> Normaliser
+              </button>
             </div>
-            <button onClick={handleCleanText} disabled={!text.trim()} className="btn whitespace-nowrap">
-              <Icon d="M4 7h16M4 12h10M4 17h6" /> Normaliser
-            </button>
+
+            <div className="flex items-center justify-between gap-3 flex-wrap text-xs pt-1 border-t border-surface-line dark:border-surface-line-dark">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-surface-mute dark:text-surface-mute-dark">Lignes par diapo :</span>
+                <div
+                  role="radiogroup"
+                  aria-label="Lignes par diapositive"
+                  className="inline-flex rounded-lg p-0.5 bg-surface-app dark:bg-surface-app-dark border border-surface-line dark:border-surface-line-dark"
+                >
+                  {([1, 2, 3] as const).map(num => (
+                    <button
+                      key={num}
+                      type="button"
+                      role="radio"
+                      aria-checked={settings.linesPerSlide === num}
+                      onClick={() => setSettings(s => ({ ...s, linesPerSlide: num }))}
+                      onKeyDown={e => handleRadioKeyDown(e, num)}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                        settings.linesPerSlide === num
+                          ? 'bg-brand text-white shadow-sm'
+                          : 'text-surface-mute dark:text-surface-mute-dark hover:text-surface-ink dark:hover:text-white'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label
+                className="flex items-center gap-2 cursor-pointer text-surface-mute dark:text-surface-mute-dark hover:text-surface-ink dark:hover:text-white"
+                title="Respecte les lignes vides et les --- déjà présents. Décochez pour tout regrouper à nouveau."
+              >
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded accent-brand"
+                  checked={settings.keepExistingBreaks}
+                  onChange={e => setSettings(s => ({ ...s, keepExistingBreaks: e.target.checked }))}
+                />
+                <span>Conserver les couplets existants</span>
+              </label>
+            </div>
           </div>
 
           <textarea
+            ref={textareaRef}
             className="field !h-auto flex-1 min-h-[200px] p-4 resize-none leading-relaxed"
             placeholder={'Collez votre texte ici.\n\nSéparez les diapositives par une ligne vide ou ---'}
             value={text}
