@@ -269,22 +269,16 @@ export default function App() {
   }, [text, settings.useFirstLineAsTitle])
 
   const deferredSlides = useDeferredValue(slides)
+  const deferredSettings = useDeferredValue(settings)
 
   const slideSizes = useMemo(() => {
     if (!settings.autoFitFont) {
       return slides.map(() => settings.fontSize)
     }
-    return fitSlideSizes(deferredSlides, settings)
+    return fitSlideSizes(deferredSlides, deferredSettings)
   }, [
     deferredSlides,
-    settings.fontFamily,
-    settings.lineHeight,
-    settings.boldTitle,
-    settings.boldAllText,
-    settings.vAlign,
-    settings.slideFormat,
-    settings.fontSize,
-    settings.autoFitFont,
+    deferredSettings,
     fontLoadVersion
   ])
 
