@@ -17,6 +17,7 @@ export interface PptxSlide {
   title: string
   bodyLines: string[]
   centered?: boolean
+  fontSize?: number
 }
 
 const hex = (c: string) => c.replace('#', '').toUpperCase()
@@ -42,6 +43,8 @@ export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Pro
     const sl = pptx.addSlide()
     sl.background = { color: hex(s.bgColor) }
 
+    const fontSize = slide.fontSize ?? s.fontSize
+
     const bodyRuns = slide.bodyLines.map((line, i) => {
       const isBullet = /^[-*•]\s+/.test(line)
       const clean = line.replace(/^[-*•]\s+/, '')
@@ -49,7 +52,7 @@ export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Pro
         text: clean,
         options: {
           breakLine: i < slide.bodyLines.length - 1,
-          fontSize: s.fontSize,
+          fontSize,
           bold: s.boldAllText,
           bullet: isBullet ? { indent: BULLET_INDENT } : false,
           paraSpaceAfter: i < slide.bodyLines.length - 1 ? PARA_AFTER : 0,
@@ -63,7 +66,7 @@ export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Pro
         ...(slide.title ? [{
           text: slide.title,
           options: {
-            fontSize: Math.round(s.fontSize * TITLE_SCALE),
+            fontSize: Math.round(fontSize * TITLE_SCALE),
             bold: s.boldTitle || s.boldAllText,
             breakLine: true,
             paraSpaceAfter: TITLE_GAP
@@ -85,7 +88,7 @@ export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Pro
         sl.addText(slide.title, {
           x: margin, y: top, w: width - margin * 2, h: TITLE_BOX_H / 72,
           fontFace: s.fontFamily,
-          fontSize: Math.round(s.fontSize * TITLE_SCALE),
+          fontSize: Math.round(fontSize * TITLE_SCALE),
           bold: s.boldTitle || s.boldAllText,
           color: hex(s.textColor),
           align, valign: 'middle', margin: 0
