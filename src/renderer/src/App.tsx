@@ -1,11 +1,13 @@
 import { buildPptxBase64, buildOutlineText } from './pptx'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { BULLET_INDENT, getSlideDimensions, LINE_FACTOR, MARGIN, PARA_AFTER, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
+import { useDeferredValue } from 'react'
+import { BULLET_INDENT, fitSlideSizes, getSlideDimensions, LINE_FACTOR, MARGIN, MAX_FONT_SIZE, MIN_FONT_SIZE, PARA_AFTER, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
 import { normalizeText } from './normalize'
 
 interface StyleSettings {
   fontFamily: string
   fontSize: number
+  autoFitFont: boolean
   textColor: string
   bgColor: string
   lineHeight: number
@@ -29,6 +31,7 @@ interface UpdateState {
 const DEFAULT_SETTINGS: StyleSettings = {
   fontFamily: 'Calibri',
   fontSize: 18,
+  autoFitFont: false,
   textColor: '#1f2937',
   bgColor: '#ffffff',
   lineHeight: 1.4,
@@ -137,7 +140,8 @@ export default function App() {
         const parsed = JSON.parse(saved)
         const linesPerSlide = [1, 2, 3].includes(parsed.linesPerSlide) ? (parsed.linesPerSlide as 1 | 2 | 3) : 2
         const keepExistingBreaks = typeof parsed.keepExistingBreaks === 'boolean' ? parsed.keepExistingBreaks : true
-        return { ...DEFAULT_SETTINGS, ...parsed, linesPerSlide, keepExistingBreaks }
+        const autoFitFont = typeof parsed.autoFitFont === 'boolean' ? parsed.autoFitFont : false
+        return { ...DEFAULT_SETTINGS, ...parsed, linesPerSlide, keepExistingBreaks, autoFitFont }
       }
       return DEFAULT_SETTINGS
     } catch {
@@ -264,9 +268,39 @@ export default function App() {
       })
   }, [text, settings.useFirstLineAsTitle])
 
+  const deferredSlides = useDeferredValue(slides)
+
+  const slideSizes = useMemo(() => {
+    if (!settings.autoFitFont) {
+      return slides.map(() => settings.fontSize)
+    }
+    return fitSlideSizes(deferredSlides, settings)
+  }, [
+    deferredSlides,
+    settings.fontFamily,
+    settings.lineHeight,
+    settings.boldTitle,
+    settings.boldAllText,
+    settings.vAlign,
+    settings.slideFormat,
+    settings.fontSize,
+    settings.autoFitFont,
+    fontLoadVersion
+  ])
+
   const layouts = useMemo(
-    () => measureSlides(slides, settings),
-    [slides, settings.fontFamily, settings.fontSize, settings.lineHeight, settings.boldTitle, settings.boldAllText, settings.vAlign, settings.slideFormat, fontLoadVersion]
+    () => measureSlides(slides, settings, slideSizes),
+    [
+      slides,
+      settings.fontFamily,
+      settings.lineHeight,
+      settings.boldTitle,
+      settings.boldAllText,
+      settings.vAlign,
+      settings.slideFormat,
+      slideSizes,
+      fontLoadVersion
+    ]
   )
   const alertCount = layouts.filter(layout => layout.level !== 'ok').length
   const appendAlertSuffix = (message: string) => alertCount
@@ -296,13 +330,13 @@ export default function App() {
       .replace(/'/g, '&#039;')
   }
 
-  const generateSingleSlideHtml = (slide: { title: string; bodyLines: string[] }) => {
+  const generateSingleSlideHtml = (slide: { title: string; bodyLines: string[] }, fontSize: number = settings.fontSize) => {
     const fontWeightStyle = settings.boldAllText ? 'font-weight: bold;' : ''
-    let html = `<div style="font-family: '${settings.fontFamily}', sans-serif; font-size: ${settings.fontSize}pt; color: ${settings.textColor}; background-color: ${settings.bgColor}; padding: 32px; line-height: ${settings.lineHeight}; text-align: ${settings.align}; border: 1px solid transparent;">`
+    let html = `<div style="font-family: '${settings.fontFamily}', sans-serif; font-size: ${fontSize}pt; color: ${settings.textColor}; background-color: ${settings.bgColor}; padding: 32px; line-height: ${settings.lineHeight}; text-align: ${settings.align}; border: 1px solid transparent;">`
 
     if (slide.title) {
       const boldStyle = settings.boldTitle || settings.boldAllText ? 'font-weight: bold;' : 'font-weight: normal;'
-      html += `<h2 style="font-size: ${settings.fontSize * 1.35}pt; color: ${settings.textColor}; margin: 0 0 16px 0; ${boldStyle}; text-align: ${settings.align};">${escapeHtml(slide.title)}</h2>`
+      html += `<h2 style="font-size: ${fontSize * 1.35}pt; color: ${settings.textColor}; margin: 0 0 16px 0; ${boldStyle}; text-align: ${settings.align};">${escapeHtml(slide.title)}</h2>`
     }
 
     if (slide.bodyLines.length > 0) {
@@ -328,7 +362,8 @@ export default function App() {
     if (!slides[index]) return
 
     const slide = slides[index]
-    const html = generateSingleSlideHtml(slide)
+    const fontSize = slideSizes[index] ?? settings.fontSize
+    const html = generateSingleSlideHtml(slide, fontSize)
     const plainText = `${slide.title ? slide.title + '\n' : ''}${slide.bodyLines.join('\n')}`
 
     const res = await copyHtmlToClipboard(html, plainText)
@@ -346,7 +381,8 @@ export default function App() {
     // Format "plan" : collé dans PowerPoint (Affichage > Plan, ou volet des miniatures),
     // chaque bloc devient une diapositive distincte.
     const outline = buildOutlineText(slides, settings.useFirstLineAsTitle)
-    const res = await copyHtmlToClipboard('', outline)
+    const html = slides.map((slide, i) => generateSingleSlideHtml(slide, slideSizes[i] ?? settings.fontSize)).join('<br/><hr/><br/>')
+    const res = await copyHtmlToClipboard(html, outline)
 
     if (res.success) {
       showToast(appendAlertSuffix(`Copié : ${slides.length} diapositive${slides.length > 1 ? 's' : ''}. Collez dans PowerPoint > Affichage > Plan`))
@@ -358,7 +394,11 @@ export default function App() {
   const handleExportPptx = async () => {
     if (slides.length === 0) return
     try {
-      const pptxSlides = slides.map((slide, index) => ({ ...slide, centered: layouts[index]?.centered }))
+      const pptxSlides = slides.map((slide, index) => ({
+        ...slide,
+        centered: layouts[index]?.centered,
+        fontSize: slideSizes[index]
+      }))
       const base64 = await buildPptxBase64(pptxSlides, settings)
       const api = (window as any).api
       if (api?.savePptx) {
@@ -549,7 +589,7 @@ export default function App() {
           <section className="card p-5">
             <h2 className="text-sm font-semibold mb-4">Mise en page</h2>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="lbl">Police</label>
                 <select value={settings.fontFamily} onChange={e => setSettings({ ...settings, fontFamily: e.target.value })} className="field">
@@ -562,7 +602,49 @@ export default function App() {
               </div>
               <div>
                 <label className="lbl">Taille (pt)</label>
-                <input type="number" min={10} max={48} value={settings.fontSize} onChange={e => setSettings({ ...settings, fontSize: Number(e.target.value) })} className="field" />
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={MIN_FONT_SIZE}
+                    max={MAX_FONT_SIZE}
+                    disabled={settings.autoFitFont}
+                    title={settings.autoFitFont ? 'Automatique' : undefined}
+                    value={settings.fontSize}
+                    onChange={e => setSettings({ ...settings, fontSize: Number(e.target.value) })}
+                    className="field flex-1"
+                  />
+                  <button
+                    type="button"
+                    aria-pressed={settings.autoFitFont}
+                    title="Applique à chaque diapo la plus grande taille possible sans débordement"
+                    onClick={() => {
+                      const next = !settings.autoFitFont
+                      setSettings(s => ({ ...s, autoFitFont: next }))
+                      if (next && slides.length > 0) {
+                        const calculatedSizes = fitSlideSizes(slides, settings)
+                        const min = Math.min(...calculatedSizes)
+                        const max = Math.max(...calculatedSizes)
+                        const calcLayouts = measureSlides(slides, settings, calculatedSizes)
+                        const overflowCount = calcLayouts.filter(l => l.level !== 'ok').length
+                        let msg = `Taille max appliquée : de ${min} à ${max} pt`
+                        if (min === max) {
+                          msg = `Taille max appliquée : ${min} pt`
+                        }
+                        if (overflowCount > 0) {
+                          msg += ` · ${overflowCount} diapo${overflowCount > 1 ? 's' : ''} trop longue${overflowCount > 1 ? 's' : ''} même à ${MIN_FONT_SIZE} pt`
+                        }
+                        showToast(msg)
+                      }
+                    }}
+                    className={`btn !px-2 !py-1 text-xs font-medium shrink-0 transition-colors ${
+                      settings.autoFitFont
+                        ? 'bg-brand text-white border-transparent hover:bg-brand-hover'
+                        : 'border-surface-line dark:border-surface-line-dark'
+                    }`}
+                  >
+                    ⤢ Taille max auto
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="lbl">Alignement</label>
@@ -673,6 +755,13 @@ export default function App() {
                   }}
                 >
                   <div
+                    className="absolute top-2 right-2 z-10 px-2 py-0.5 text-[11px] font-medium rounded bg-black/60 text-white backdrop-blur-xs select-none pointer-events-none"
+                    title={settings.autoFitFont ? 'Taille automatique' : 'Taille fixe'}
+                  >
+                    {settings.autoFitFont ? `Auto · ${slideSizes[activeSlideIndex] ?? settings.fontSize} pt` : `${slideSizes[activeSlideIndex] ?? settings.fontSize} pt`}
+                  </div>
+
+                  <div
                     className="absolute inset-0 flex flex-col"
                     style={{
                       boxSizing: 'border-box',
@@ -683,7 +772,7 @@ export default function App() {
                     {active.title && (
                       layouts[activeSlideIndex]?.centered ? (
                         <h3 style={{
-                          fontSize: `${settings.fontSize * TITLE_SCALE * scale}px`,
+                          fontSize: `${(slideSizes[activeSlideIndex] ?? settings.fontSize) * TITLE_SCALE * scale}px`,
                           lineHeight: LINE_FACTOR,
                           fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
                           textAlign: settings.align,
@@ -701,7 +790,7 @@ export default function App() {
                         }}>
                           <h3 style={{
                             width: '100%',
-                            fontSize: `${settings.fontSize * TITLE_SCALE * scale}px`,
+                            fontSize: `${(slideSizes[activeSlideIndex] ?? settings.fontSize) * TITLE_SCALE * scale}px`,
                             lineHeight: LINE_FACTOR,
                             fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
                             textAlign: settings.align,
@@ -714,7 +803,7 @@ export default function App() {
                       )
                     )}
                     <div style={{
-                      fontSize: `${settings.fontSize * scale}px`,
+                      fontSize: `${(slideSizes[activeSlideIndex] ?? settings.fontSize) * scale}px`,
                       textAlign: settings.align,
                       lineHeight: settings.lineHeight * LINE_FACTOR,
                       fontWeight: settings.boldAllText ? 700 : 400,
