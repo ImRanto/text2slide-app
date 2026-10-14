@@ -1,12 +1,13 @@
 {
   "name": "text2slide",
-  "version": "1.0.10",
+  "version": "2.0.0",
   "description": "Application de bureau Windows 100% hors-ligne pour formater et copier du texte vers PowerPoint",
   "main": "out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "test": "npx tsx --test src/renderer/src/layout.test.ts",
     "prepack": "npm run build",
     "pack": "electron-builder --win --publish never",
     "release": "electron-builder --win --publish always"

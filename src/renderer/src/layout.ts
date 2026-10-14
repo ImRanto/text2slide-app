@@ -7,7 +7,7 @@ export function getSlideDimensions(format: SlideFormat): { width: number; height
 }
 
 export const MIN_FONT_SIZE = 10
-export const MAX_FONT_SIZE = 48
+export const MAX_FONT_SIZE = 100
 
 export const MARGIN = 50.4
 export const TITLE_BOX_H = 79.2
@@ -51,11 +51,12 @@ export function findMaxFit(
   min = MIN_FONT_SIZE,
   max = MAX_FONT_SIZE
 ): { size: number; fitsAtMin: boolean } {
+  const fitsAtMin = fits(min)
+  if (!fitsAtMin) {
+    return { size: min, fitsAtMin: false }
+  }
   if (fits(max)) {
     return { size: max, fitsAtMin: true }
-  }
-  if (!fits(min)) {
-    return { size: min, fitsAtMin: false }
   }
 
   let low = min
@@ -72,15 +73,7 @@ export function findMaxFit(
     }
   }
 
-  let size = best
-  while (size > min && !fits(size)) {
-    size--
-  }
-  if (size < max && fits(size + 1)) {
-    size = size + 1
-  }
-
-  return { size, fitsAtMin: fits(size) }
+  return { size: best, fitsAtMin: true }
 }
 
 function createMeasureContainer(settings: LayoutSettings): HTMLDivElement {
