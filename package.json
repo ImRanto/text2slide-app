@@ -53,7 +53,8 @@
       {
         "provider": "github",
         "owner": "ImRanto",
-        "repo": "text2slide-app"
+        "repo": "text2slide-app",
+        "releaseType": "release"
       }
     ],
     "directories": {
