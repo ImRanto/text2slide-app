@@ -1,7 +1,7 @@
 import { buildPptxBase64, buildOutlineText } from './pptx'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useDeferredValue } from 'react'
-import { BULLET_INDENT, fitSlideSizes, getSlideDimensions, LINE_FACTOR, MARGIN, MAX_FONT_SIZE, MIN_FONT_SIZE, PARA_AFTER, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
+import { BULLET_INDENT, fitSlideSizes, getSlideDimensions, LINE_FACTOR, MARGIN, MAX_FONT_SIZE, MIN_FONT_SIZE, PARA_AFTER, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
 import { normalizeText } from './normalize'
 import { buildSlides } from './parseLyrics'
 
