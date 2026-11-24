@@ -230,7 +230,7 @@ const SECTIONS: HelpSection[] = [
         <ul className="list-disc pl-5 text-sm leading-relaxed space-y-1">
           <li>Les marqueurs de section, séparés du texte s'il est sur la même ligne, les lignes <Code>Titre:</Code> et la zone de titre.</li>
           <li>Les sauts forcés <Code>/</Code>, qui deviennent une coupure de diapositive.</li>
-          <li>Un marqueur ne compte pas dans le nombre de lignes : il reste attaché à la première diapositive de son couplet.</li>
+          <li>Un marqueur ne compte pas dans le nombre de lignes : il s'affiche sur la même ligne que le premier mot sur la diapo, tout en restant séparé dans le texte normalisé.</li>
         </ul>
         <Note>Relancer « Normaliser » sur un texte déjà normalisé ne change rien.</Note>
       </>

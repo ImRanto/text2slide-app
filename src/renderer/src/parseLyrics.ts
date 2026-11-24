@@ -213,9 +213,14 @@ export function buildSlides(text: string, opts: SlideOptions): ParsedSlide[] {
     } else if (b.kind === 'section' && b.marker) {
       const showLabel = opts.showSectionLabels
       if (!showLabel && b.lines.length === 0) continue
+      const bodyLines = showLabel
+        ? b.lines.length > 0
+          ? [`${b.marker.display} ${b.lines[0]}`, ...b.lines.slice(1)]
+          : [b.marker.display]
+        : b.lines
       slides.push({
         title: '',
-        bodyLines: showLabel ? [b.marker.display, ...b.lines] : b.lines,
+        bodyLines,
         raw,
         section: b.marker.display
       })

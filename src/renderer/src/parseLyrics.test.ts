@@ -32,18 +32,18 @@ test('matchMarker: does not treat lyric lines as markers', () => {
 test('sections: each marker starts a slide and its label is displayed by default', () => {
   const slides = buildSlides('1-\nligne a\nligne b\n2-\nligne c', on)
   assert.equal(slides.length, 2)
-  assert.deepEqual(slides[0].bodyLines, ['1 -', 'ligne a', 'ligne b'])
-  assert.deepEqual(slides[1].bodyLines, ['2 -', 'ligne c'])
+  assert.deepEqual(slides[0].bodyLines, ['1 - ligne a', 'ligne b'])
+  assert.deepEqual(slides[1].bodyLines, ['2 - ligne c'])
 })
 
-test('sections: marker prefixes are separated from same-line text', () => {
+test('sections: marker prefixes share a display line with their text', () => {
   const slides = buildSlides('1. première ligne\n2- deuxième ligne\n[Verset 1] troisième ligne\nRefrain: quatrième ligne\n1 - [Verset 2] cinquième ligne', on)
   assert.deepEqual(slides.map(slide => slide.bodyLines), [
-    ['1.', 'première ligne'],
-    ['2 -', 'deuxième ligne'],
-    ['Verset 1', 'troisième ligne'],
-    ['Refrain', 'quatrième ligne'],
-    ['1 - Verset 2', 'cinquième ligne']
+    ['1. première ligne'],
+    ['2 - deuxième ligne'],
+    ['Verset 1 troisième ligne'],
+    ['Refrain quatrième ligne'],
+    ['1 - Verset 2 cinquième ligne']
   ])
 })
 
@@ -56,10 +56,10 @@ test('sections: Malagasy refrain markers separate the first lyric word', () => {
   ]
   const slides = inputs.map(input => buildSlides(input, on)[0].bodyLines)
   assert.deepEqual(slides, [
-    ['fiv', 'voalohany'],
-    ['fiv', 'voalohany'],
-    ['fiverenana', 'voalohany'],
-    ['fiverenana', 'voalohany']
+    ['fiv voalohany'],
+    ['fiv voalohany'],
+    ['fiverenana voalohany'],
+    ['fiverenana voalohany']
   ])
 })
 
@@ -73,7 +73,7 @@ test('title: everything before the first marker is the title', () => {
   assert.equal(slides.length, 2)
   assert.equal(slides[0].title, 'Mon chant\nAuteur X')
   assert.deepEqual(slides[0].bodyLines, [])
-  assert.deepEqual(slides[1].bodyLines, ['1 -', 'ligne a'])
+  assert.deepEqual(slides[1].bodyLines, ['1 - ligne a'])
 })
 
 test('title: Titre: prefix marks only that line as title', () => {
@@ -128,6 +128,12 @@ test('normalize: moves same-line marker text onto a new line', () => {
     keepExistingBreaks: true
   })
   assert.equal(out, '1.\npremière ligne\n\n2-\ndeuxième ligne\n\n[Verset 1]\ntroisième ligne\n\nRefrain:\nquatrième ligne')
+  assert.deepEqual(buildSlides(out, on).map(slide => slide.bodyLines), [
+    ['1. première ligne'],
+    ['2 - deuxième ligne'],
+    ['Verset 1 troisième ligne'],
+    ['Refrain quatrième ligne']
+  ])
 })
 
 test('normalize: separates Malagasy refrain prefixes from the first lyric word', () => {
