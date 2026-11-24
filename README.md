@@ -35,6 +35,11 @@
   - **Copie sous forme de Plan** : Copie de l'ensemble des diapositives au format structuré pour un collage direct dans le volet *Affichage > Plan* de PowerPoint.
   - **Copie d'une diapositive** : Copie au format HTML enrichi ou texte brut avec le raccourci `Ctrl+Shift+C`.
 
+- ❓ **Centre d'aide intégré** *(nouveau)*
+  - Bouton **?** dans l'en-tête (ou touche **F1**) : guides d'utilisation par rubrique (démarrage rapide, paroles et sections, normalisation, mise en page, export, raccourcis, dépannage).
+  - Bouton « Charger l'exemple dans l'éditeur » pour tester la syntaxe des paroles en un clic.
+  - Fenêtre accessible : fermeture par `Échap` ou clic à l'extérieur, navigation au clavier, compatible mode sombre.
+
 - 🌓 **Interface moderne & Mode sombre**
   - Interface réactive intégrée avec basculement fluide entre mode clair et mode sombre.
   - Sauvegarde automatique des préférences dans l'application.
@@ -224,6 +229,7 @@ npm run release
 ## ⌨️ Raccourcis et astuces
 
 - **`Ctrl + Shift + C`** : Copie la diapositive actuellement sélectionnée dans le presse-papiers.
+- **`F1`** : Ouvre ou ferme le centre d'aide (bouton **?** de l'en-tête). `Échap` le ferme.
 - **Paroles** : mettez `1-`, `2-`, `[Refrain]` sur leur propre ligne pour créer les couplets, et terminez une ligne par `/` pour forcer une nouvelle diapositive (voir le [guide](#-guide--saisir-des-paroles-sections-titre-et-sauts-de-diapo)).
 - **Collage dans PowerPoint** :
   - Pour importer l'ensemble du texte d'un coup : cliquez sur **Copier tout**, ouvrez PowerPoint, basculez en vue **Affichage > Plan** (ou *Outline View*) et collez (`Ctrl + V`). Chaque bloc deviendra une diapositive dédiée.

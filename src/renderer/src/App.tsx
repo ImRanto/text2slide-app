@@ -4,6 +4,7 @@ import { useDeferredValue } from 'react'
 import { BULLET_INDENT, fitSlideSizes, getSlideDimensions, LINE_FACTOR, MARGIN, MAX_FONT_SIZE, MIN_FONT_SIZE, PARA_AFTER, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
 import { normalizeText } from './normalize'
 import { buildSlides } from './parseLyrics'
+import HelpModal from './HelpModal'
 
 interface StyleSettings {
   fontFamily: string
@@ -132,6 +133,7 @@ export default function App() {
     try { return localStorage.getItem('text2slide_dark') === '1' } catch { return false }
   })
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [previewWidth, setPreviewWidth] = useState(520)
   const previewRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -183,6 +185,17 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [text, settings, activeSlideIndex])
+
+  useEffect(() => {
+    const onF1 = (e: KeyboardEvent) => {
+      if (e.key === 'F1') {
+        e.preventDefault()
+        setShowHelp(open => !open)
+      }
+    }
+    window.addEventListener('keydown', onF1)
+    return () => window.removeEventListener('keydown', onF1)
+  }, [])
 
   useEffect(() => {
     const api = (window as any).api
@@ -302,6 +315,18 @@ export default function App() {
     setToast(msg)
     window.clearTimeout(toastTimer.current)
     toastTimer.current = window.setTimeout(() => setToast(null), 2500)
+  }
+
+  const handleLoadExample = (example: string) => {
+    if (text.trim()) {
+      setText(`${text.replace(/\s+$/, '')}\n\n---\n\n${example}`)
+      showToast("Exemple ajouté à la fin du texte")
+    } else {
+      setText(example)
+      showToast('Exemple chargé')
+    }
+    setActiveSlideIndex(0)
+    setShowHelp(false)
   }
 
   const escapeHtml = (input: string) => {
@@ -489,6 +514,16 @@ export default function App() {
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            className="btn !w-9 !px-0"
+            aria-label="Aide et guides d'utilisation"
+            aria-haspopup="dialog"
+            title="Aide et guides d'utilisation (F1)"
+          >
+            <Icon d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.1 9.2a3 3 0 015.8 1c0 2-2.9 2.5-2.9 4.3M12 17.5h.01" />
+          </button>
           <button onClick={() => setDarkMode(!darkMode)} className="btn !w-9 !px-0" aria-label={darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'} title={darkMode ? 'Mode clair' : 'Mode sombre'}>
             {darkMode ? <Icon d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z" /> : <Icon d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />}
           </button>
@@ -889,6 +924,8 @@ export default function App() {
           </section>
         </div>
       </main>
+
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} onLoadExample={handleLoadExample} />}
 
       {toast && (
         <div role="status" className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-surface-ink dark:bg-surface-card-dark text-white px-4 py-3 text-sm rounded-xl shadow-lg border border-white/10">
