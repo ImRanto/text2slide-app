@@ -14,6 +14,10 @@ test('matchMarker: recognises numbered, bracketed and word markers', () => {
   assert.equal(matchMarker('[Verset 1]')?.display, 'Verset 1')
   assert.equal(matchMarker('1 - [Verset 1]')?.display, '1 - Verset 1')
   assert.equal(matchMarker('Refrain:')?.display, 'Refrain')
+  assert.equal(matchMarker('fiv:')?.display, 'fiv')
+  assert.equal(matchMarker('fiv')?.display, 'fiv')
+  assert.equal(matchMarker('fiverenana:')?.display, 'fiverenana')
+  assert.equal(matchMarker('fiverenana')?.display, 'fiverenana')
   assert.equal(matchMarker('Verset 2')?.display, 'Verset 2')
 })
 
@@ -40,6 +44,22 @@ test('sections: marker prefixes are separated from same-line text', () => {
     ['Verset 1', 'troisième ligne'],
     ['Refrain', 'quatrième ligne'],
     ['1 - Verset 2', 'cinquième ligne']
+  ])
+})
+
+test('sections: Malagasy refrain markers separate the first lyric word', () => {
+  const inputs = [
+    'fiv: voalohany',
+    'fiv voalohany',
+    'fiverenana: voalohany',
+    'fiverenana voalohany'
+  ]
+  const slides = inputs.map(input => buildSlides(input, on)[0].bodyLines)
+  assert.deepEqual(slides, [
+    ['fiv', 'voalohany'],
+    ['fiv', 'voalohany'],
+    ['fiverenana', 'voalohany'],
+    ['fiverenana', 'voalohany']
   ])
 })
 
@@ -108,6 +128,14 @@ test('normalize: moves same-line marker text onto a new line', () => {
     keepExistingBreaks: true
   })
   assert.equal(out, '1.\npremière ligne\n\n2-\ndeuxième ligne\n\n[Verset 1]\ntroisième ligne\n\nRefrain:\nquatrième ligne')
+})
+
+test('normalize: separates Malagasy refrain prefixes from the first lyric word', () => {
+  const out = normalizeText('fiv: voalohany\nfiv voalohany\nfiverenana: voalohany\nfiverenana voalohany', {
+    linesPerSlide: 2,
+    keepExistingBreaks: true
+  })
+  assert.equal(out, 'fiv:\nvoalohany\n\nfiv\nvoalohany\n\nfiverenana:\nvoalohany\n\nfiverenana\nvoalohany')
 })
 
 test('normalize: slash becomes a slide boundary, also when existing breaks are ignored', () => {

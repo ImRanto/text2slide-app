@@ -47,7 +47,7 @@ export interface SlideOptions {
 }
 
 const SECTION_WORDS =
-  'verset|couplet|strophe|refrain|pont|bridge|chorus|verse|intro|outro|coda|interlude|pr[ée]-?\\s?refrain|pre-?\\s?chorus'
+  'verset|couplet|strophe|refrain|fiv|fiverenana|pont|bridge|chorus|verse|intro|outro|coda|interlude|pr[ée]-?\\s?refrain|pre-?\\s?chorus'
 
 const NUMBERED = /^(\d{1,2})\s*([-–—.)])$/
 const NUMBERED_BRACKET = /^(\d{1,2})\s*[-–—.)]\s*\[\s*([^\]]+?)\s*\]$/

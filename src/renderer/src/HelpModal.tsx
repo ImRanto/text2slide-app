@@ -138,7 +138,7 @@ const SECTIONS: HelpSection[] = [
               title: 'Structurer les diapositives',
               body: (
                 <>
-                  Une ligne vide, <Code>---</Code>, un marqueur de section (<Code>1-</Code>, <Code>[Refrain]</Code>) ou un <Code>/</Code> en fin de ligne démarre ou termine une diapositive. Le texte qui suit un marqueur sur la même ligne passe à la ligne suivante. « Normaliser » regroupe les lignes par 1, 2 ou 3.
+                  Une ligne vide, <Code>---</Code>, un marqueur de section (<Code>1-</Code>, <Code>[Refrain]</Code>, <Code>fiv:</Code>, <Code>fiverenana:</Code>) ou un <Code>/</Code> en fin de ligne démarre ou termine une diapositive. Le texte qui suit un marqueur sur la même ligne passe à la ligne suivante. « Normaliser » regroupe les lignes par 1, 2 ou 3.
                 </>
               )
             },
