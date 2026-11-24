@@ -73,7 +73,10 @@ export function matchMarker(line: string): SectionMarker | null {
   if (m) return { raw: trimmed, display: m[1] }
 
   m = WORD.exec(trimmed)
-  if (m) return { raw: trimmed, display: m[1].trim() }
+  if (m) {
+    const word = m[1].trim()
+    return { raw: trimmed, display: /^fiv$/i.test(word) ? 'fiv:' : word }
+  }
 
   return null
 }
