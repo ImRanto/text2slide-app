@@ -1,8 +1,10 @@
 import { buildPptxBase64, buildOutlineText } from './pptx'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useDeferredValue } from 'react'
-import { BULLET_INDENT, fitSlideSizes, getSlideDimensions, LINE_FACTOR, MARGIN, MAX_FONT_SIZE, MIN_FONT_SIZE, PARA_AFTER, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
+import { BULLET_INDENT, fitSlideSizes, getSlideDimensions, LINE_FACTOR, MARGIN, MAX_FONT_SIZE, MIN_FONT_SIZE, PARA_AFTER, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
 import { normalizeText } from './normalize'
+import { buildSlides } from './parseLyrics'
+import HelpModal from './HelpModal'
 
 interface StyleSettings {
   fontFamily: string
@@ -15,6 +17,7 @@ interface StyleSettings {
   vAlign: VAlign
   slideFormat: SlideFormat
   useFirstLineAsTitle: boolean
+  showSectionLabels: boolean
   boldTitle: boolean
   boldAllText: boolean
   linesPerSlide: 1 | 2 | 3
@@ -39,6 +42,7 @@ const DEFAULT_SETTINGS: StyleSettings = {
   vAlign: 'auto',
   slideFormat: '16:9',
   useFirstLineAsTitle: false,
+  showSectionLabels: true,
   boldTitle: true,
   boldAllText: false,
   linesPerSlide: 2,
@@ -129,6 +133,7 @@ export default function App() {
     try { return localStorage.getItem('text2slide_dark') === '1' } catch { return false }
   })
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [previewWidth, setPreviewWidth] = useState(520)
   const previewRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -180,6 +185,17 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [text, settings, activeSlideIndex])
+
+  useEffect(() => {
+    const onF1 = (e: KeyboardEvent) => {
+      if (e.key === 'F1') {
+        e.preventDefault()
+        setShowHelp(open => !open)
+      }
+    }
+    window.addEventListener('keydown', onF1)
+    return () => window.removeEventListener('keydown', onF1)
+  }, [])
 
   useEffect(() => {
     const api = (window as any).api
@@ -246,27 +262,13 @@ export default function App() {
     }
   }
 
-  const slides = useMemo(() => {
-    if (!text.trim()) return []
-
-    const rawBlocks = text.split(/\n\s*\n|---/)
-
-    return rawBlocks
-      .map(block => block.trim())
-      .filter(block => block.length > 0)
-      .map(block => {
-        const lines = block.split('\n').map(l => l.trim()).filter(Boolean)
-        let title = ''
-        let bodyLines = lines
-
-        if (settings.useFirstLineAsTitle && lines.length > 0 && (lines[0].length < 60 && !lines[0].endsWith('.'))) {
-          title = lines[0]
-          bodyLines = lines.slice(1)
-        }
-
-        return { title, bodyLines, raw: block }
-      })
-  }, [text, settings.useFirstLineAsTitle])
+  const slides = useMemo(
+    () => buildSlides(text, {
+      useFirstLineAsTitle: settings.useFirstLineAsTitle,
+      showSectionLabels: settings.showSectionLabels
+    }),
+    [text, settings.useFirstLineAsTitle, settings.showSectionLabels]
+  )
 
   const deferredSlides = useDeferredValue(slides)
   const deferredSettings = useDeferredValue(settings)
@@ -315,6 +317,18 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setToast(null), 2500)
   }
 
+  const handleLoadExample = (example: string) => {
+    if (text.trim()) {
+      setText(`${text.replace(/\s+$/, '')}\n\n---\n\n${example}`)
+      showToast("Exemple ajouté à la fin du texte")
+    } else {
+      setText(example)
+      showToast('Exemple chargé')
+    }
+    setActiveSlideIndex(0)
+    setShowHelp(false)
+  }
+
   const escapeHtml = (input: string) => {
     return input
       .replace(/&/g, '&amp;')
@@ -330,7 +344,7 @@ export default function App() {
 
     if (slide.title) {
       const boldStyle = settings.boldTitle || settings.boldAllText ? 'font-weight: bold;' : 'font-weight: normal;'
-      html += `<h2 style="font-size: ${fontSize * 1.35}pt; color: ${settings.textColor}; margin: 0 0 16px 0; ${boldStyle}; text-align: ${settings.align};">${escapeHtml(slide.title)}</h2>`
+      html += `<h2 style="font-size: ${fontSize * 1.35}pt; color: ${settings.textColor}; margin: 0 0 16px 0; ${boldStyle}; text-align: ${settings.align};">${escapeHtml(slide.title).replace(/\n/g, '<br>')}</h2>`
     }
 
     if (slide.bodyLines.length > 0) {
@@ -500,6 +514,16 @@ export default function App() {
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            className="btn !w-9 !px-0"
+            aria-label="Aide et guides d'utilisation"
+            aria-haspopup="dialog"
+            title="Aide et guides d'utilisation (F1)"
+          >
+            <Icon d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.1 9.2a3 3 0 015.8 1c0 2-2.9 2.5-2.9 4.3M12 17.5h.01" />
+          </button>
           <button onClick={() => setDarkMode(!darkMode)} className="btn !w-9 !px-0" aria-label={darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'} title={darkMode ? 'Mode clair' : 'Mode sombre'}>
             {darkMode ? <Icon d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z" /> : <Icon d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />}
           </button>
@@ -566,7 +590,7 @@ export default function App() {
           <textarea
             ref={textareaRef}
             className="field !h-auto flex-1 min-h-[200px] p-4 resize-none leading-relaxed"
-            placeholder={'Collez votre texte ici.\n\nSéparez les diapositives par une ligne vide ou ---'}
+            placeholder={'Collez votre texte ici.\n\nSéparez les diapositives par une ligne vide, --- ou un / en fin de ligne.\nMarqueurs de section : 1 -   2 -   [Verset 1]   [Refrain]\nLe texte avant le premier marqueur devient le titre (ou préfixez une ligne par Titre:).'}
             value={text}
             onChange={e => setText(e.target.value)}
             spellCheck={false}
@@ -688,6 +712,13 @@ export default function App() {
                 <input type="checkbox" className="w-4 h-4" checked={settings.useFirstLineAsTitle} onChange={e => setSettings({ ...settings, useFirstLineAsTitle: e.target.checked })} />
                 Première ligne = titre
               </label>
+              <label
+                className="flex items-center gap-2 cursor-pointer"
+                title="Affiche sur la diapo le marqueur de section (1 -, Verset 1, Refrain…). Décochez pour le masquer : il sert alors seulement à découper les diapos."
+              >
+                <input type="checkbox" className="w-4 h-4" checked={settings.showSectionLabels} onChange={e => setSettings({ ...settings, showSectionLabels: e.target.checked })} />
+                Afficher les marqueurs (1 -, Refrain…)
+              </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4" checked={settings.boldAllText} onChange={e => setSettings({ ...settings, boldAllText: e.target.checked })} />
                 Tout en gras
@@ -771,6 +802,7 @@ export default function App() {
                           fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
                           textAlign: settings.align,
                           overflowWrap: 'break-word',
+                          whiteSpace: 'pre-line',
                           margin: `0 0 ${TITLE_GAP * scale}px 0`
                         }}>
                           {active.title}
@@ -789,6 +821,7 @@ export default function App() {
                             fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
                             textAlign: settings.align,
                             overflowWrap: 'break-word',
+                            whiteSpace: 'pre-line',
                             margin: 0
                           }}>
                             {active.title}
@@ -891,6 +924,8 @@ export default function App() {
           </section>
         </div>
       </main>
+
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} onLoadExample={handleLoadExample} />}
 
       {toast && (
         <div role="status" className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-surface-ink dark:bg-surface-card-dark text-white px-4 py-3 text-sm rounded-xl shadow-lg border border-white/10">

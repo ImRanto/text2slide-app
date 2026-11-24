@@ -111,6 +111,7 @@ export function measureOne(
       fontSize: `${fontSize * TITLE_SCALE}px`,
       lineHeight: String(LINE_FACTOR),
       fontWeight: settings.boldTitle || settings.boldAllText ? '700' : '400',
+      whiteSpace: 'pre-line',
       overflowWrap: 'break-word'
     })
     container.appendChild(title)
