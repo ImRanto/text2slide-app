@@ -1,4 +1,4 @@
-import { buildPptxBase64, buildOutlineText } from './pptx'
+import { buildPptxBase64 } from './pptx'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useDeferredValue } from 'react'
 import { BULLET_INDENT, fitSlideSizes, getSlideDimensions, LINE_FACTOR, MARGIN, MAX_FONT_SIZE, MIN_FONT_SIZE, PARA_AFTER, TITLE_BLOCK, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
@@ -47,53 +47,6 @@ const DEFAULT_SETTINGS: StyleSettings = {
   boldAllText: false,
   linesPerSlide: 2,
   keepExistingBreaks: true
-}
-
-async function copyHtmlToClipboard(html: string, text: string): Promise<{ success: boolean; error?: string }> {
-  const api = (window as any).api
-
-  if (api?.writeToClipboard) {
-    try {
-      const res = await api.writeToClipboard({ html, text })
-      if (res?.success) return { success: true }
-    } catch (error: any) {
-      console.warn('IPC clipboard failed:', error)
-    }
-  }
-
-  if (!html) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return { success: true }
-    } catch (error: any) {
-      return { success: false, error: error?.message || 'Impossible de copier le contenu.' }
-    }
-  }
-
-  try {
-    if (navigator?.clipboard?.write) {
-      const blobHtml = new Blob([html], { type: 'text/html' })
-      const blobText = new Blob([text], { type: 'text/plain' })
-      const ClipboardItemCtor = (window as any).ClipboardItem
-      if (ClipboardItemCtor) {
-        const item = new ClipboardItemCtor({
-          'text/html': blobHtml,
-          'text/plain': blobText
-        })
-        await navigator.clipboard.write([item])
-        return { success: true }
-      }
-    }
-  } catch (error: any) {
-    console.warn('ClipboardItem fallback failed:', error)
-  }
-
-  try {
-    await navigator.clipboard.writeText(text)
-    return { success: false, error: 'Copie HTML non supportée. Le texte brut a été copié.' }
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Impossible de copier le contenu.' }
-  }
 }
 
 const Swatches = ({ value, colors, onChange, label }: { value: string; colors: string[]; onChange: (c: string) => void; label: string }) => (
@@ -178,7 +131,7 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
         e.preventDefault()
-        handleCopySlide(activeSlideIndex)
+        handleCopySlide()
       }
     }
 
@@ -329,73 +282,28 @@ export default function App() {
     setShowHelp(false)
   }
 
-  const escapeHtml = (input: string) => {
-    return input
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;')
-  }
-
-  const generateSingleSlideHtml = (slide: { title: string; bodyLines: string[] }, fontSize: number = settings.fontSize) => {
-    const fontWeightStyle = settings.boldAllText ? 'font-weight: bold;' : ''
-    let html = `<div style="font-family: '${settings.fontFamily}', sans-serif; font-size: ${fontSize}pt; color: ${settings.textColor}; background-color: ${settings.bgColor}; padding: 32px; line-height: ${settings.lineHeight}; text-align: ${settings.align}; border: 1px solid transparent;">`
-
-    if (slide.title) {
-      const boldStyle = settings.boldTitle || settings.boldAllText ? 'font-weight: bold;' : 'font-weight: normal;'
-      html += `<h2 style="font-size: ${fontSize * 1.35}pt; color: ${settings.textColor}; margin: 0 0 16px 0; ${boldStyle}; text-align: ${settings.align};">${escapeHtml(slide.title).replace(/\n/g, '<br>')}</h2>`
+  const handleCopySlide = async () => {
+    const preview = previewRef.current
+    const api = (window as any).api
+    if (!active || !preview) return
+    if (typeof api?.copySlideImage !== 'function') {
+      showToast('La copie comme image est disponible dans la version bureau.')
+      return
     }
 
-    if (slide.bodyLines.length > 0) {
-      html += '<div style="display: block;">'
-      slide.bodyLines.forEach(line => {
-        const isBullet = line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ')
-        const cleanLine = isBullet ? line.replace(/^[-*•]\s*/, '') : line
+    const excluded = Array.from(preview.querySelectorAll<HTMLElement>('[data-copy-exclude]'))
+    const previousVisibility = excluded.map(element => element.style.visibility)
+    try {
+      excluded.forEach(element => { element.style.visibility = 'hidden' })
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 
-        if (isBullet) {
-          html += `<div style="margin: 0 0 6px 20px; ${fontWeightStyle}">• ${escapeHtml(cleanLine)}</div>`
-        } else {
-          html += `<p style="margin: 0 0 8px 0; ${fontWeightStyle}">${escapeHtml(cleanLine)}</p>`
-        }
-      })
-      html += '</div>'
-    }
-
-    html += '</div>'
-    return html
-  }
-
-  const handleCopySlide = async (index: number) => {
-    if (!slides[index]) return
-
-    const slide = slides[index]
-    const fontSize = slideSizes[index] ?? settings.fontSize
-    const html = generateSingleSlideHtml(slide, fontSize)
-    const plainText = `${slide.title ? slide.title + '\n' : ''}${slide.bodyLines.join('\n')}`
-
-    const res = await copyHtmlToClipboard(html, plainText)
-
-    if (res.success) {
-      showToast(appendAlertSuffix('Copié !'))
-    } else {
-      showToast(appendAlertSuffix(res.error || 'Erreur de copie.'))
-    }
-  }
-
-  const handleCopyAllSlides = async () => {
-    if (slides.length === 0) return
-
-    // Format "plan" : collé dans PowerPoint (Affichage > Plan, ou volet des miniatures),
-    // chaque bloc devient une diapositive distincte.
-    const outline = buildOutlineText(slides, settings.useFirstLineAsTitle)
-    const html = slides.map((slide, i) => generateSingleSlideHtml(slide, slideSizes[i] ?? settings.fontSize)).join('<br/><hr/><br/>')
-    const res = await copyHtmlToClipboard(html, outline)
-
-    if (res.success) {
-      showToast(appendAlertSuffix(`Copié : ${slides.length} diapositive${slides.length > 1 ? 's' : ''}. Collez dans PowerPoint > Affichage > Plan`))
-    } else {
-      showToast(appendAlertSuffix(res.error || 'Erreur de copie.'))
+      const rect = preview.getBoundingClientRect()
+      const result = await api.copySlideImage({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })
+      showToast(appendAlertSuffix(result?.success ? 'Diapositive copiée comme image, prête à coller.' : result?.error || 'Erreur de copie.'))
+    } catch (error: any) {
+      showToast(appendAlertSuffix(error?.message || 'Erreur lors de la copie de la diapositive.'))
+    } finally {
+      excluded.forEach((element, index) => { element.style.visibility = previousVisibility[index] })
     }
   }
 
@@ -746,14 +654,11 @@ export default function App() {
             <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
               <h2 className="text-sm font-semibold">Aperçu</h2>
               <div className="flex items-center gap-2">
-                <button onClick={handleCopyAllSlides} disabled={slides.length === 0} className="btn" title="Copie toutes les diapositives. Collez dans PowerPoint : Affichage > Plan (1 bloc = 1 diapositive)">
-                  Copier tout
+                <button onClick={handleExportPptx} disabled={slides.length === 0} className="btn" title="Génère et ouvre un fichier PowerPoint contenant toutes les diapositives.">
+                  Copier tout (.pptx)
                 </button>
-                <button onClick={handleExportPptx} disabled={slides.length === 0} className="btn" title="Crée un fichier PowerPoint avec une diapositive par bloc de texte">
-                  <Icon d="M12 3v12M7 10l5 5 5-5M5 21h14" /> Exporter .pptx
-                </button>
-                <button onClick={() => handleCopySlide(activeSlideIndex)} disabled={!active} className="btn-primary !h-9">
-                  <Icon d="M9 9h10v10H9zM5 15V5h10" /> Copier la diapositive
+                <button onClick={handleCopySlide} disabled={!active} className="btn-primary !h-9" title="Copie la diapositive entière comme image, prête à coller dans PowerPoint.">
+                  <Icon d="M9 9h10v10H9zM5 15V5h10" /> Copier la diapo (image)
                   <kbd className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[11px] font-medium">Ctrl+Shift+C</kbd>
                 </button>
               </div>
@@ -780,6 +685,7 @@ export default function App() {
                   }}
                 >
                   <div
+                    data-copy-exclude
                     className="absolute top-2 right-2 z-10 px-2 py-0.5 text-[11px] font-medium rounded bg-black/60 text-white backdrop-blur-xs select-none pointer-events-none"
                     title={settings.autoFitFont ? 'Taille automatique' : 'Taille fixe'}
                   >
@@ -857,6 +763,7 @@ export default function App() {
                   </div>
                   {layouts[activeSlideIndex]?.level !== 'ok' && (
                     <div
+                      data-copy-exclude
                       aria-hidden="true"
                       className={`absolute border-t-2 border-dashed ${
                         layouts[activeSlideIndex]?.level === 'over' ? 'border-red-600' : 'border-amber-500'
@@ -869,7 +776,7 @@ export default function App() {
                     />
                   )}
                   {layouts[activeSlideIndex]?.level === 'over' && (
-                    <div aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-1 bg-red-600" />
+                    <div data-copy-exclude aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-1 bg-red-600" />
                   )}
                 </div>
 

@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const api = {
-  writeToClipboard: (data: { html: string; text: string }) =>
-    ipcRenderer.invoke('clipboard:write-powerpoint', data),
+  copySlideImage: (rect: { x: number; y: number; width: number; height: number }) =>
+    ipcRenderer.invoke('clipboard:write-slide-image', rect),
   onUpdateStatus: (callback: (status: any) => void) => {
     const listener = (_: unknown, status: any) => callback(status)
     ipcRenderer.on('update-status', listener)

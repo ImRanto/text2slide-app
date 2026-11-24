@@ -109,16 +109,3 @@ export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Pro
 
   return (await pptx.write({ outputType: 'base64' })) as string
 }
-
-/** Texte au format "plan" : coller dans PowerPoint > Affichage > Plan (ou dans le volet des miniatures)
- *  crée une diapositive par bloc (titre = 1re ligne, le reste en retrait). */
-export function buildOutlineText(slides: PptxSlide[], useTitle: boolean): string {
-  return slides
-    .map(sl => {
-      const lines = sl.title ? [sl.title.replace(/\n+/g, ' '), ...sl.bodyLines] : useTitle ? sl.bodyLines : [...sl.bodyLines]
-      const [first, ...rest] = lines
-      const body = rest.map(l => '\t' + l.replace(/^[-*•]\s+/, ''))
-      return [first ?? '', ...body].join('\r\n')
-    })
-    .join('\r\n')
-}

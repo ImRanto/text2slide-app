@@ -148,7 +148,7 @@ const SECTIONS: HelpSection[] = [
             },
             {
               title: 'Exporter',
-              body: <>« Exporter .pptx » génère le fichier PowerPoint. « Copier tout » et « Copier la diapositive » servent au collage direct.</>
+              body: <>« Copier la diapo (image) » copie l'aperçu complet, prêt à coller. « Copier tout (.pptx) » crée et ouvre une présentation PowerPoint avec toutes les diapos.</>
             }
           ]}
         />
@@ -270,13 +270,12 @@ const SECTIONS: HelpSection[] = [
     render: () => (
       <>
         <Title>Exporter vers PowerPoint</Title>
-        <Lead>Trois façons de récupérer vos diapositives.</Lead>
+        <Lead>Copiez une diapo comme image ou créez une présentation PowerPoint complète.</Lead>
         <Table
           head={['Action', 'Résultat']}
           rows={[
-            [<strong>Exporter .pptx</strong>, <>Génère un fichier PowerPoint natif, une diapositive par bloc, ouvrable dans PowerPoint, LibreOffice ou OpenOffice.</>],
-            [<strong>Copier tout</strong>, <>Copie toutes les diapositives au format « Plan ». Dans PowerPoint : <em>Affichage &gt; Plan</em>, puis <Kbd>Ctrl</Kbd> + <Kbd>V</Kbd>.</>],
-            [<strong>Copier la diapositive</strong>, <>Copie la diapositive sélectionnée en HTML enrichi ou en texte brut (<Kbd>Ctrl</Kbd> + <Kbd>Shift</Kbd> + <Kbd>C</Kbd>).</>]
+            [<strong>Copier tout (.pptx)</strong>, <>Crée et ouvre un fichier PowerPoint natif contenant toutes les diapos mises en forme.</>],
+            [<strong>Copier la diapo (image)</strong>, <>Copie l'aperçu complet comme image dans le presse-papiers; collez-le dans PowerPoint. Raccourci : <Kbd>Ctrl</Kbd> + <Kbd>Shift</Kbd> + <Kbd>C</Kbd>.</>]
           ]}
         />
         <Note>Avant d'exporter, vérifiez les diapositives signalées par « ⚠ diapo à vérifier » : elles dépassent la zone de sécurité.</Note>
@@ -293,7 +292,7 @@ const SECTIONS: HelpSection[] = [
         <Table
           head={['Raccourci', 'Action']}
           rows={[
-            [<><Kbd>Ctrl</Kbd> + <Kbd>Shift</Kbd> + <Kbd>C</Kbd></>, <>Copier la diapositive sélectionnée</>],
+            [<><Kbd>Ctrl</Kbd> + <Kbd>Shift</Kbd> + <Kbd>C</Kbd></>, <>Copier la diapo sélectionnée comme image</>],
             [<Kbd>F1</Kbd>, <>Ouvrir ou fermer l'aide</>],
             [<Kbd>Échap</Kbd>, <>Fermer l'aide</>],
             [<><Kbd>↑</Kbd> <Kbd>↓</Kbd></>, <>Changer de rubrique dans l'aide</>]

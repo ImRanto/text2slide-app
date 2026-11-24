@@ -62,13 +62,26 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.handle('clipboard:write-powerpoint', async (_, { html, text }) => {
+  ipcMain.handle('clipboard:write-slide-image', async (_, rect) => {
     try {
-      if (html) {
-        clipboard.write({ html, text })
-      } else {
-        clipboard.writeText(text)
+      if (
+        !mainWindow ||
+        ![rect?.x, rect?.y, rect?.width, rect?.height].every(Number.isFinite) ||
+        rect.width <= 0 ||
+        rect.height <= 0
+      ) {
+        return { success: false, error: 'Zone de diapositive invalide.' }
       }
+
+      const image = await mainWindow.webContents.capturePage({
+        x: Math.floor(rect.x),
+        y: Math.floor(rect.y),
+        width: Math.ceil(rect.width),
+        height: Math.ceil(rect.height)
+      })
+      if (image.isEmpty()) return { success: false, error: 'Impossible de capturer la diapositive.' }
+
+      clipboard.writeImage(image)
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error?.message || String(error) }
