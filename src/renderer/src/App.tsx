@@ -49,6 +49,21 @@ const DEFAULT_SETTINGS: StyleSettings = {
   keepExistingBreaks: true
 }
 
+function getPptxFileName(slide: { title: string; bodyLines: string[] }): string {
+  const firstText = slide.title.trim() || slide.bodyLines.find(line => line.trim()) || ''
+  const sanitizedName = firstText
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/g, '')
+  let baseName = Array.from(sanitizedName).slice(0, 80).join('').replace(/[. ]+$/g, '')
+
+  if (!baseName || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)) {
+    baseName = 'Text2Slide'
+  }
+  return `${baseName}.pptx`
+}
+
 const Swatches = ({ value, colors, onChange, label }: { value: string; colors: string[]; onChange: (c: string) => void; label: string }) => (
   <div>
     <span className="lbl">{label}</span>
@@ -310,6 +325,7 @@ export default function App() {
   const handleExportPptx = async () => {
     if (slides.length === 0) return
     try {
+      const defaultName = getPptxFileName(slides[0])
       const pptxSlides = slides.map((slide, index) => ({
         ...slide,
         centered: layouts[index]?.centered,
@@ -318,7 +334,7 @@ export default function App() {
       const base64 = await buildPptxBase64(pptxSlides, settings)
       const api = (window as any).api
       if (api?.savePptx) {
-        const res = await api.savePptx({ base64, defaultName: 'Text2Slide.pptx' })
+        const res = await api.savePptx({ base64, defaultName })
         if (res?.success) showToast(appendAlertSuffix(`Présentation enregistrée (${slides.length} diapositives)`))
         else if (!res?.canceled) showToast(appendAlertSuffix(res?.error || "Erreur lors de l'enregistrement."))
       } else {
@@ -326,7 +342,7 @@ export default function App() {
         const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
         const a = document.createElement('a')
         a.href = url
-        a.download = 'Text2Slide.pptx'
+        a.download = defaultName
         a.click()
         setTimeout(() => URL.revokeObjectURL(url), 1000)
         showToast(appendAlertSuffix(`Présentation téléchargée (${slides.length} diapositives)`))
@@ -654,7 +670,7 @@ export default function App() {
             <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
               <h2 className="text-sm font-semibold">Aperçu</h2>
               <div className="flex items-center gap-2">
-                <button onClick={handleExportPptx} disabled={slides.length === 0} className="btn" title="Génère et ouvre un fichier PowerPoint contenant toutes les diapositives.">
+                <button onClick={handleExportPptx} disabled={slides.length === 0} className="btn" title="Génère et ouvre un fichier PowerPoint nommé d'après le titre ou le premier texte de la première diapo.">
                   Copier tout (.pptx)
                 </button>
                 <button onClick={handleCopySlide} disabled={!active} className="btn-primary !h-9" title="Copie la diapositive entière comme image, prête à coller dans PowerPoint.">

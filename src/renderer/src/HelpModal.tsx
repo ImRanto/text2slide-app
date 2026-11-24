@@ -274,7 +274,7 @@ const SECTIONS: HelpSection[] = [
         <Table
           head={['Action', 'Résultat']}
           rows={[
-            [<strong>Copier tout (.pptx)</strong>, <>Crée et ouvre un fichier PowerPoint natif contenant toutes les diapos mises en forme.</>],
+            [<strong>Copier tout (.pptx)</strong>, <>Crée et ouvre un fichier PowerPoint natif contenant toutes les diapos mises en forme. Son nom reprend le titre ou le premier texte de la première diapo.</>],
             [<strong>Copier la diapo (image)</strong>, <>Copie l'aperçu complet comme image dans le presse-papiers; collez-le dans PowerPoint. Raccourci : <Kbd>Ctrl</Kbd> + <Kbd>Shift</Kbd> + <Kbd>C</Kbd>.</>]
           ]}
         />
