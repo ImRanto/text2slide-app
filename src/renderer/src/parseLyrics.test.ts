@@ -22,6 +22,7 @@ test('matchMarker: does not treat lyric lines as markers', () => {
   assert.equal(matchMarker('1- Première ligne'), null)
   assert.equal(matchMarker('Je chante le refrain'), null)
   assert.equal(matchMarker('- item'), null)
+  assert.deepEqual(buildSlides('1 - 2 - 3 soleil', on).map(slide => slide.bodyLines), [['1 - 2 - 3 soleil']])
 })
 
 test('sections: each marker starts a slide and its label is displayed by default', () => {
@@ -29,6 +30,17 @@ test('sections: each marker starts a slide and its label is displayed by default
   assert.equal(slides.length, 2)
   assert.deepEqual(slides[0].bodyLines, ['1 -', 'ligne a', 'ligne b'])
   assert.deepEqual(slides[1].bodyLines, ['2 -', 'ligne c'])
+})
+
+test('sections: marker prefixes are separated from same-line text', () => {
+  const slides = buildSlides('1. première ligne\n2- deuxième ligne\n[Verset 1] troisième ligne\nRefrain: quatrième ligne\n1 - [Verset 2] cinquième ligne', on)
+  assert.deepEqual(slides.map(slide => slide.bodyLines), [
+    ['1.', 'première ligne'],
+    ['2 -', 'deuxième ligne'],
+    ['Verset 1', 'troisième ligne'],
+    ['Refrain', 'quatrième ligne'],
+    ['1 - Verset 2', 'cinquième ligne']
+  ])
 })
 
 test('sections: label can be hidden', () => {
@@ -88,6 +100,14 @@ test('normalize: legacy grouping unchanged', () => {
 test('normalize: marker is kept with its first chunk and does not count as a line', () => {
   const out = normalizeText('Mon chant\n\n1-\na\nb\nc\n2-\nd', { linesPerSlide: 2, keepExistingBreaks: true })
   assert.equal(out, 'Mon chant\n\n1-\na\nb\n\nc\n\n2-\nd')
+})
+
+test('normalize: moves same-line marker text onto a new line', () => {
+  const out = normalizeText('1. première ligne\n2- deuxième ligne\n[Verset 1] troisième ligne\nRefrain: quatrième ligne', {
+    linesPerSlide: 2,
+    keepExistingBreaks: true
+  })
+  assert.equal(out, '1.\npremière ligne\n\n2-\ndeuxième ligne\n\n[Verset 1]\ntroisième ligne\n\nRefrain:\nquatrième ligne')
 })
 
 test('normalize: slash becomes a slide boundary, also when existing breaks are ignored', () => {

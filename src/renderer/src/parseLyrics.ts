@@ -2,8 +2,9 @@
  * Shared parser for lyrics-style text.
  *
  * Supported syntax (in addition to blank lines and `---`):
- *  - Section markers, alone on their line, each one starts a new slide:
+ *  - Section markers, alone or before text on their line, each one starts a new slide:
  *      `1-`  `1 -`  `1.`  `1)`  `[Verset 1]`  `1 - [Verset 1]`  `Verset 1`  `Refrain:`
+ *    Any text following a marker on the same line becomes the first content line.
  *  - A trailing `/` at the end of a line ends the slide after that line
  *    (a line containing only `/` is a pure slide break).
  *  - Everything before the first section marker is the title.
@@ -77,6 +78,26 @@ export function matchMarker(line: string): SectionMarker | null {
   return null
 }
 
+function splitMarkerWithText(line: string): { marker: SectionMarker; text: string } | null {
+  let split: { marker: SectionMarker; text: string } | null = null
+  for (let i = 1; i < line.length; i++) {
+    if (line[i] !== ' ' && line[i] !== '\t') continue
+
+    const marker = matchMarker(line.slice(0, i).trimEnd())
+    if (marker) split = { marker, text: line.slice(i).trimStart() }
+  }
+
+  if (
+    split &&
+    /^\d{1,2}\s*[-–—.)]\s+\S/.test(split.text) &&
+    /^\d{1,2}\s*[-–—.)]$/.test(split.marker.raw)
+  ) {
+    return null
+  }
+
+  return split
+}
+
 type Token =
   | { t: 'blank' }
   | { t: 'sep' }
@@ -90,26 +111,33 @@ function tokenize(text: string): Token[] {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
 
-  return cleaned.split('\n').map((rawLine): Token => {
+  return cleaned.split('\n').flatMap((rawLine): Token[] => {
     const trimmed = rawLine.replace(/^[ \t]+|[ \t]+$/g, '').replace(/[ \t]+/g, ' ')
-    if (trimmed === '') return { t: 'blank' }
-    if (/^-{3,}$/.test(trimmed)) return { t: 'sep' }
+    if (trimmed === '') return [{ t: 'blank' }]
+    if (/^-{3,}$/.test(trimmed)) return [{ t: 'sep' }]
 
     const marker = matchMarker(trimmed)
-    if (marker) return { t: 'marker', marker }
+    if (marker) return [{ t: 'marker', marker }]
 
-    let content = trimmed
-    let endsSlide = false
-    if (content.endsWith('/') && !content.endsWith('//')) {
-      content = content.slice(0, -1).trimEnd()
-      endsSlide = true
-      if (content === '') return { t: 'break' }
-    }
+    const markedText = splitMarkerWithText(trimmed)
+    if (markedText) return [{ t: 'marker', marker: markedText.marker }, textToken(markedText.text)]
 
-    const title = TITLE_PREFIX.exec(content)
-    if (title) return { t: 'text', raw: content, text: title[1].trim(), isTitle: true, endsSlide }
-    return { t: 'text', raw: content, text: content, isTitle: false, endsSlide }
+    return [textToken(trimmed)]
   })
+}
+
+function textToken(raw: string): Token {
+  let content = raw
+  let endsSlide = false
+  if (content.endsWith('/') && !content.endsWith('//')) {
+    content = content.slice(0, -1).trimEnd()
+    endsSlide = true
+    if (content === '') return { t: 'break' }
+  }
+
+  const title = TITLE_PREFIX.exec(content)
+  if (title) return { t: 'text', raw: content, text: title[1].trim(), isTitle: true, endsSlide }
+  return { t: 'text', raw: content, text: content, isTitle: false, endsSlide }
 }
 
 export function parseBlocks(text: string, opts: ParseOptions): ParsedBlock[] {

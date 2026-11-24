@@ -138,7 +138,7 @@ const SECTIONS: HelpSection[] = [
               title: 'Structurer les diapositives',
               body: (
                 <>
-                  Une ligne vide, <Code>---</Code>, un marqueur de section (<Code>1-</Code>, <Code>[Refrain]</Code>) ou un <Code>/</Code> en fin de ligne démarre ou termine une diapositive. « Normaliser » regroupe les lignes par 1, 2 ou 3.
+                  Une ligne vide, <Code>---</Code>, un marqueur de section (<Code>1-</Code>, <Code>[Refrain]</Code>) ou un <Code>/</Code> en fin de ligne démarre ou termine une diapositive. Le texte qui suit un marqueur sur la même ligne passe à la ligne suivante. « Normaliser » regroupe les lignes par 1, 2 ou 3.
                 </>
               )
             },
@@ -228,7 +228,7 @@ const SECTIONS: HelpSection[] = [
         />
         <SubTitle>Ce qui est toujours conservé</SubTitle>
         <ul className="list-disc pl-5 text-sm leading-relaxed space-y-1">
-          <li>Les marqueurs de section, les lignes <Code>Titre:</Code> et la zone de titre.</li>
+          <li>Les marqueurs de section, séparés du texte s'il est sur la même ligne, les lignes <Code>Titre:</Code> et la zone de titre.</li>
           <li>Les sauts forcés <Code>/</Code>, qui deviennent une coupure de diapositive.</li>
           <li>Un marqueur ne compte pas dans le nombre de lignes : il reste attaché à la première diapositive de son couplet.</li>
         </ul>
