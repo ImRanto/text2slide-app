@@ -115,7 +115,7 @@ export async function buildPptxBase64(slides: PptxSlide[], s: PptxSettings): Pro
 export function buildOutlineText(slides: PptxSlide[], useTitle: boolean): string {
   return slides
     .map(sl => {
-      const lines = sl.title ? [sl.title, ...sl.bodyLines] : useTitle ? sl.bodyLines : [...sl.bodyLines]
+      const lines = sl.title ? [sl.title.replace(/\n+/g, ' '), ...sl.bodyLines] : useTitle ? sl.bodyLines : [...sl.bodyLines]
       const [first, ...rest] = lines
       const body = rest.map(l => '\t' + l.replace(/^[-*•]\s+/, ''))
       return [first ?? '', ...body].join('\r\n')

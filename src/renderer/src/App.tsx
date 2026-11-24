@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useDeferredValue } from 'react'
 import { BULLET_INDENT, fitSlideSizes, getSlideDimensions, LINE_FACTOR, MARGIN, MAX_FONT_SIZE, MIN_FONT_SIZE, PARA_AFTER, TITLE_BOX_H, TITLE_GAP, TITLE_SCALE, measureSlides, type SlideFormat, type VAlign } from './layout'
 import { normalizeText } from './normalize'
+import { buildSlides } from './parseLyrics'
 
 interface StyleSettings {
   fontFamily: string
@@ -15,6 +16,7 @@ interface StyleSettings {
   vAlign: VAlign
   slideFormat: SlideFormat
   useFirstLineAsTitle: boolean
+  showSectionLabels: boolean
   boldTitle: boolean
   boldAllText: boolean
   linesPerSlide: 1 | 2 | 3
@@ -39,6 +41,7 @@ const DEFAULT_SETTINGS: StyleSettings = {
   vAlign: 'auto',
   slideFormat: '16:9',
   useFirstLineAsTitle: false,
+  showSectionLabels: true,
   boldTitle: true,
   boldAllText: false,
   linesPerSlide: 2,
@@ -246,27 +249,13 @@ export default function App() {
     }
   }
 
-  const slides = useMemo(() => {
-    if (!text.trim()) return []
-
-    const rawBlocks = text.split(/\n\s*\n|---/)
-
-    return rawBlocks
-      .map(block => block.trim())
-      .filter(block => block.length > 0)
-      .map(block => {
-        const lines = block.split('\n').map(l => l.trim()).filter(Boolean)
-        let title = ''
-        let bodyLines = lines
-
-        if (settings.useFirstLineAsTitle && lines.length > 0 && (lines[0].length < 60 && !lines[0].endsWith('.'))) {
-          title = lines[0]
-          bodyLines = lines.slice(1)
-        }
-
-        return { title, bodyLines, raw: block }
-      })
-  }, [text, settings.useFirstLineAsTitle])
+  const slides = useMemo(
+    () => buildSlides(text, {
+      useFirstLineAsTitle: settings.useFirstLineAsTitle,
+      showSectionLabels: settings.showSectionLabels
+    }),
+    [text, settings.useFirstLineAsTitle, settings.showSectionLabels]
+  )
 
   const deferredSlides = useDeferredValue(slides)
   const deferredSettings = useDeferredValue(settings)
@@ -330,7 +319,7 @@ export default function App() {
 
     if (slide.title) {
       const boldStyle = settings.boldTitle || settings.boldAllText ? 'font-weight: bold;' : 'font-weight: normal;'
-      html += `<h2 style="font-size: ${fontSize * 1.35}pt; color: ${settings.textColor}; margin: 0 0 16px 0; ${boldStyle}; text-align: ${settings.align};">${escapeHtml(slide.title)}</h2>`
+      html += `<h2 style="font-size: ${fontSize * 1.35}pt; color: ${settings.textColor}; margin: 0 0 16px 0; ${boldStyle}; text-align: ${settings.align};">${escapeHtml(slide.title).replace(/\n/g, '<br>')}</h2>`
     }
 
     if (slide.bodyLines.length > 0) {
@@ -566,7 +555,7 @@ export default function App() {
           <textarea
             ref={textareaRef}
             className="field !h-auto flex-1 min-h-[200px] p-4 resize-none leading-relaxed"
-            placeholder={'Collez votre texte ici.\n\nSéparez les diapositives par une ligne vide ou ---'}
+            placeholder={'Collez votre texte ici.\n\nSéparez les diapositives par une ligne vide, --- ou un / en fin de ligne.\nMarqueurs de section : 1 -   2 -   [Verset 1]   [Refrain]\nLe texte avant le premier marqueur devient le titre (ou préfixez une ligne par Titre:).'}
             value={text}
             onChange={e => setText(e.target.value)}
             spellCheck={false}
@@ -688,6 +677,13 @@ export default function App() {
                 <input type="checkbox" className="w-4 h-4" checked={settings.useFirstLineAsTitle} onChange={e => setSettings({ ...settings, useFirstLineAsTitle: e.target.checked })} />
                 Première ligne = titre
               </label>
+              <label
+                className="flex items-center gap-2 cursor-pointer"
+                title="Affiche sur la diapo le marqueur de section (1 -, Verset 1, Refrain…). Décochez pour le masquer : il sert alors seulement à découper les diapos."
+              >
+                <input type="checkbox" className="w-4 h-4" checked={settings.showSectionLabels} onChange={e => setSettings({ ...settings, showSectionLabels: e.target.checked })} />
+                Afficher les marqueurs (1 -, Refrain…)
+              </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4" checked={settings.boldAllText} onChange={e => setSettings({ ...settings, boldAllText: e.target.checked })} />
                 Tout en gras
@@ -771,6 +767,7 @@ export default function App() {
                           fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
                           textAlign: settings.align,
                           overflowWrap: 'break-word',
+                          whiteSpace: 'pre-line',
                           margin: `0 0 ${TITLE_GAP * scale}px 0`
                         }}>
                           {active.title}
@@ -789,6 +786,7 @@ export default function App() {
                             fontWeight: settings.boldTitle || settings.boldAllText ? 700 : 400,
                             textAlign: settings.align,
                             overflowWrap: 'break-word',
+                            whiteSpace: 'pre-line',
                             margin: 0
                           }}>
                             {active.title}

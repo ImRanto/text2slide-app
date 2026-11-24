@@ -11,6 +11,12 @@
   - Respect des strophes/couplets existants ou regroupement sur mesure.
   - Séparation explicite possible par une ligne vide ou `---`.
 
+- 🎵 **Paroles : sections, titre et saut de diapo forcé**
+  - **Marqueurs de section** seuls sur leur ligne : `1-`, `1 -`, `1.`, `1)`, `[Verset 1]`, `1 - [Verset 1]`, `Verset 2`, `Refrain:`, `[Pont]`… Chaque marqueur démarre une nouvelle diapo. Le marqueur est affiché sur la diapo par défaut (case « Afficher les marqueurs » pour le masquer).
+  - **Titre** : tout ce qui précède le premier marqueur devient le titre (diapo de titre). On peut aussi préfixer une ligne par `Titre:` (ou `Title:`, `Chant:`, `Cantique:`, `Hymne:`) : seule cette ligne devient le titre.
+  - **Saut de diapo forcé** : un `/` à la fin d'une ligne termine la diapo après cette ligne (une ligne contenant uniquement `/` fait de même). Le `/` n'est pas affiché.
+  - Ces éléments sont conservés par le bouton de normalisation ; le marqueur ne compte pas dans le nombre de lignes par diapo.
+
 - 📐 **Ajustement automatique de la taille ("Taille max auto")**
   - Calcul dynamique par recherche dichotomique de la taille de police maximale adaptée (entre 10 pt et 100 pt) sans débordement.
   - Détection visuelle et alertes en cas de dépassement de la zone de sécurité.
